@@ -1,11 +1,13 @@
-# ESPlay Retro Emulation 
+# ESPlay Retro Emulation  ![retro-emulation](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/retro_emulation.png)
+![splash-screen](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/esplay-emu_logo.png)
 
-Retro Emulation Collection runs on [esplay-hardware] - and ESP32 Devices with WROVER Module (4MB PSRAM).
+Retro Emulation Collection runs on [esplay-hardware] - and ESP32 Devices with WROVER Module (4MB PSRAM). 
 - Nofrendo NES Emulator for play Nintendo ROM
 - GNUBoy for play GameBoy and GameBoy Color
 - SMSPlusGX could play Sega Master System, Game Gear and Coleco Vision ROM
+- Esplay launcher an application to change rom and emulator selection, based on go-go launcher for odroid-go.
 
-
+![esplay-hardware](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/esplay-retro.png)
 
 [esplay-hardware]: https://github.com/pebri86/esplay-hardware
 

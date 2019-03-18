@@ -21,9 +21,9 @@ Find mktool in the base firmware in my repository.
 
 run mkrelease.sh to compile and make an .fw file that could be flashed by base firmware bootloader. Place .fw file in esplay/firmware folder on sdcard, power on esplay device while press B button until bootloader screen appear. select .fw then A -> Start to flash firmware.
 
-Base firmware is a modified bootloader fork from odroid-go.
+Base firmware is a modified bootloader fork from odroid-go. 
 
 ROM
 --- 
-Please provide ROM by yourself and place them in the appropriate folder on sdcard.
+Extract skeleton.zip from docs, and copy to the root of sdcard. Please provide ROM by yourself and place them in the appropriate folder on sdcard.
 

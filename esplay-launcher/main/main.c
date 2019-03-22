@@ -28,6 +28,7 @@
 #include "colecovision.h"
 #include "main_title.h"
 #include "sms.h"
+#include "scale_option.h"
 
 #include <string.h>
 #include <dirent.h>
@@ -41,12 +42,13 @@ int BatteryPercent = 100;
 unsigned short buffer[40000];
 int colour = 65535; // white text mostly.
 
-int num_emulators = 8;
-char emulator[10][32] = {"Nintendo", "GAMEBOY", "GAMEBOY COLOR", "SEGA MASTER SYSTEM", "GAME GEAR", "COLECO VISION", "Sound Volume", "Display Brightness"};
+int num_emulators = 9;
+char emulator[10][32] = {"Nintendo", "GAMEBOY", "GAMEBOY COLOR", "SEGA MASTER SYSTEM", "GAME GEAR", "COLECO VISION", "Sound Volume", "Display Brightness", "Display Scale Options"};
 char emu_dir[10][20] = {"nes", "gb", "gbc", "sms", "gg", "col"};
 int emu_slot[10] = {1, 2, 2, 3, 3, 3};
 char brightness[10][5] = {"10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"};
 char volume[10][10] = {"Mute", "25%", "50%", "75%", "100%"};
+char scale_options[10][10] = {"None", "Fit Ratio", "Stretch"};
 
 char target[256] = "";
 int e = 0, last_e = 100, x, y = 0, count = 0;
@@ -155,6 +157,9 @@ int print_emulator(int e, int y)
             break;
         case 7:
             write_frame_rectangleLE(85, 50, 150, 56, brightness_icon.pixel_data);
+            break;        
+        case 8:
+            write_frame_rectangleLE(85, 50, 150, 56, scale_option_icon.pixel_data);
             break;
         }
 
@@ -269,6 +274,34 @@ int print_emulator(int e, int y)
                 s[i] = ' ';
             for (i = 0; i < strlen(brightness[count]); i++)
                 s[i] = brightness[count][i];
+            if (count == y)
+                print_y(0, (count % 10) + 20, s); // highlight
+            else
+                print(0, (count % 10) + 20, s);
+            count++;
+        }
+        if (y / 10 == count / 10)
+            for (i = count % 10; i < 10; i++)
+                print(0, i + 20, "                                        ");
+    }
+
+    else if (e == 8)
+    {
+        for (i = 0; i < 40; i++)
+            s[i] = ' ';
+        s[i] = 0;
+        len = strlen(emulator[e]);
+        for (i = 0; i < len; i++)
+            s[i + 19 - len / 2] = emulator[e][i];
+        print(0, 18, s);
+
+        count = 0;
+        while (count < 10)
+        {
+            for (i = 0; i < 40; i++)
+                s[i] = ' ';
+            for (i = 0; i < strlen(scale_options[count]); i++)
+                s[i] = scale_options[count][i];
             if (count == y)
                 print_y(0, (count % 10) + 20, s); // highlight
             else
@@ -452,16 +485,30 @@ void app_main(void)
                     set_volume_settings(y);
                     sprintf(s, "Volume: %i%%   ", y * 25);
                     print(0, 0, s);
+                    print(14, 15, "Saved....");
+                    vTaskDelay(20);
+                    print(14, 15, "         ");
                 }
                 else if (e == 7)
                 {
                     set_backlight_settings((y + 1) * 10);
                     set_display_brightness((y + 1) * 10);
+                    print(14, 15, "Saved....");
+                    vTaskDelay(20);
+                    print(14, 15, "         ");
+                }
+                else if (e == 8)
+                {
+                    set_scale_option_settings(y);
+                    print(14, 15, "Saved....");
+                    vTaskDelay(20);
+                    print(14, 15, "         ");
                 }
                 else
                 {
                     // not in an empty directory...
                     set_rom_name_settings(target);
+                    print(14, 15, "Loading....");
                     system_application_set(emu_slot[e]); // set emulator slot
                     esp_restart();                       // reboot!
                 }

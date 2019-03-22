@@ -34,7 +34,7 @@ static const char *NvsNamespace = "esplay";
 static const char *NvsKey_Backlight = "backlight";
 static const char *NvsKey_RomName = "rom_name";
 static const char *NvsKey_Volume = "volume";
-static const char *NvsKey_MenuFlag = "menu_flag";
+static const char *NvsKey_Scale = "scale";
 
 /**********************
  *      MACROS
@@ -268,10 +268,10 @@ void set_rom_name_settings(char *value)
     nvs_close(my_handle);
 }
 
-int8_t get_volume_settings()
+esplay_volume_level get_volume_settings()
 {
     // TODO: Move to header
-    int result = 1;
+    int result = ESPLAY_VOLUME_LEVEL1;
 
     // Open
     nvs_handle my_handle;
@@ -292,7 +292,7 @@ int8_t get_volume_settings()
     return result;
 }
 
-void set_volume_settings(int8_t value)
+void set_volume_settings(esplay_volume_level value)
 {
     // Open
     nvs_handle my_handle;
@@ -315,10 +315,10 @@ void set_volume_settings(int8_t value)
     nvs_close(my_handle);
 }
 
-int8_t get_menu_flag_settings()
+esplay_scale_option get_scale_option_settings()
 {
-    // Default force to menu
-    int result = 1;
+    // TODO: Move to header
+    int result = SCALE_FIT;
 
     // Open
     nvs_handle my_handle;
@@ -327,7 +327,7 @@ int8_t get_menu_flag_settings()
         abort();
 
     // Read
-    err = nvs_get_i8(my_handle, NvsKey_MenuFlag, &result);
+    err = nvs_get_i8(my_handle, NvsKey_Scale, &result);
     if (err == ESP_OK)
     {
         printf("%s: value=%d\n", __func__, result);
@@ -339,7 +339,7 @@ int8_t get_menu_flag_settings()
     return result;
 }
 
-void set_menu_flag_settings(int8_t value)
+void set_scale_option_settings(esplay_scale_option scale)
 {
     // Open
     nvs_handle my_handle;
@@ -350,7 +350,7 @@ void set_menu_flag_settings(int8_t value)
     printf("Try saving ... \n");
 
     // Read
-    err = nvs_set_i8(my_handle, NvsKey_MenuFlag, value);
+    err = nvs_set_i8(my_handle, NvsKey_Scale, scale);
     if (err != ESP_OK)
         abort();
 

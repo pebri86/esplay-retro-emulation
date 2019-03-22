@@ -39,14 +39,15 @@ spi_flash_mmap_handle_t hrom;
 QueueHandle_t vidQueue;
 TaskHandle_t videoTaskHandle;
 
-volume_level Volume;
+esplay_volume_level Volume;
 battery_state battery;
 
 volatile bool videoTaskIsRunning = false;
+esplay_scale_option opt;
 void videoTask(void *arg)
 {
     uint8_t *param;
-
+    opt = get_scale_option_settings();
     videoTaskIsRunning = true;
 
     const bool isGameGear = (sms.console == CONSOLE_GG) | (sms.console == CONSOLE_GGMS);
@@ -59,7 +60,7 @@ void videoTask(void *arg)
             break;
 
         render_copy_palette(palette);
-        write_sms_frame(param, palette, isGameGear, true);
+        write_sms_frame(param, palette, isGameGear, opt);
 
         battery_level_read(&battery);
 
@@ -371,7 +372,7 @@ void app_main(void)
     // Load the ROM
     load_rom(FILENAME);
 
-    write_sms_frame(NULL, NULL, false, false);
+    write_sms_frame(NULL, NULL, false, SCALE_STRETCH);
 
     vidQueue = xQueueCreate(1, sizeof(uint16_t *));
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024 * 4, NULL, 5, &videoTaskHandle, 1);

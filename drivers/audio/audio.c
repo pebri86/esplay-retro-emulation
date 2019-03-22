@@ -6,15 +6,15 @@
 #include "driver/rtc_io.h"
 
 static float Volume = 0.5f;
-static volume_level volumeLevel = VOLUME_LEVEL1;
+static esplay_volume_level volumeLevel = ESPLAY_VOLUME_LEVEL1;
 static int volumeLevels[] = {0, 125, 250, 500, 1000};
 
-volume_level audio_volume_get()
+esplay_volume_level audio_volume_get()
 {
     return volumeLevel;
 }
 
-void audio_volume_set(volume_level value)
+void audio_volume_set(esplay_volume_level value)
 {
     if (value >= VOLUME_LEVEL_COUNT)
     {

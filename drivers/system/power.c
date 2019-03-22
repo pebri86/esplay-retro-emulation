@@ -155,6 +155,8 @@ void battery_level_read(battery_state *out_state)
 
     out_state->millivolts = (int)(Vs * 1000);
     out_state->percentage = (int)((Vs - EmptyVoltage) / (FullVoltage - EmptyVoltage) * 100.0f);
+    if (out_state->percentage > 100) out_state->percentage = 100;
+    if (out_state->percentage < 0) out_state->percentage = 0;
 }
 
 void battery_level_force_voltage(float volts)

@@ -34,6 +34,13 @@ extern "C"
         _ODROID_VOLUME_FILLER = 0xffffffff
     } esplay_volume_level;
 
+    typedef enum
+    {
+        SCALE_NONE = 0,
+        SCALE_FIT = 1,
+        SCALE_STRETCH = 2
+    } esplay_scale_option;
+
     /**********************
  * GLOBAL PROTOTYPES
  **********************/
@@ -43,12 +50,12 @@ extern "C"
     char *system_util_GetFileName(const char *path);
     char *system_util_GetFileExtenstion(const char *path);
     char *system_util_GetFileNameWithoutExtension(const char *path);
-    int8_t get_menu_flag_settings();
-    void set_menu_flag_settings(int8_t value);
-    int8_t get_volume_settings();
-    void set_volume_settings(int8_t value);
+    esplay_volume_level get_volume_settings();
+    void set_volume_settings(esplay_volume_level value);
     char *get_rom_name_settings();
     void set_rom_name_settings(char *value);
+    esplay_scale_option get_scale_option_settings();
+    void set_scale_option_settings(esplay_scale_option scale);
 
     /**********************
  *      MACROS

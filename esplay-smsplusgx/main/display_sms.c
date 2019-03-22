@@ -52,9 +52,9 @@ static uint8_t getPixelSms(const uint8_t *bufs, int x, int y, int w1, int h1, in
     return col;
 }
 
-void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, bool scale)
+void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, esplay_scale_option scale)
 {
-    short x, y;
+    short x, y, xpos, ypos, outputWidth, outputHeight;
     int sending_line = -1;
     int calc_line = 0;
 
@@ -78,41 +78,13 @@ void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, boo
     {
         if (!isGameGear)
         {
-            if (scale)
+            switch (scale)
             {
-                int outputHeight = LCD_HEIGHT;
-                int outputWidth = SMS_FRAME_WIDTH + (LCD_HEIGHT - SMS_FRAME_HEIGHT);
-                int xpos = (LCD_WIDTH - outputWidth) / 2;
-
-                for (y = 0; y < outputHeight; y += LINE_COUNT)
-                {
-                    for (int i = 0; i < LINE_COUNT; ++i)
-                    {
-                        if ((y + i) >= outputHeight)
-                            break;
-
-                        int index = (i)*outputWidth;
-
-                        for (x = 0; x < outputWidth; ++x)
-                        {
-                            uint16_t sample = color[getPixelSms(data, x, (y + i), SMS_FRAME_WIDTH, SMS_FRAME_HEIGHT, outputWidth, outputHeight, isGameGear) & PIXEL_MASK];
-                            line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
-                        }
-                    }
-                    if (sending_line != -1)
-                        send_line_finish();
-                    sending_line = calc_line;
-                    calc_line = (calc_line == 1) ? 0 : 1;
-                    send_lines_ext(y, xpos, outputWidth, line[sending_line], LINE_COUNT);
-                }
-                send_line_finish();
-            }
-            else
-            {
-                int outputHeight = SMS_FRAME_HEIGHT;
-                int outputWidth = SMS_FRAME_WIDTH;
-                int xpos = (LCD_WIDTH - outputWidth) / 2;
-                int ypos = (LCD_HEIGHT - outputHeight) / 2;
+            case SCALE_NONE:
+                outputHeight = SMS_FRAME_HEIGHT;
+                outputWidth = SMS_FRAME_WIDTH;
+                xpos = (LCD_WIDTH - outputWidth) / 2;
+                ypos = (LCD_HEIGHT - outputHeight) / 2;
 
                 for (y = 0; y < outputHeight; y += LINE_COUNT)
                 {
@@ -137,15 +109,12 @@ void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, boo
                     send_lines_ext(ypos + y, xpos, outputWidth, line[sending_line], LINE_COUNT);
                 }
                 send_line_finish();
-            }
-        }
-        else
-        {
-            if (scale)
-            {
-                int outputHeight = LCD_HEIGHT;
-                int outputWidth = GAMEGEAR_FRAME_WIDTH + (LCD_HEIGHT - GAMEGEAR_FRAME_HEIGHT);
-                int xpos = (LCD_WIDTH - outputWidth) / 2;
+                break;
+
+            case SCALE_STRETCH:
+
+                outputHeight = LCD_HEIGHT;
+                outputWidth = LCD_WIDTH;
 
                 for (y = 0; y < outputHeight; y += LINE_COUNT)
                 {
@@ -158,7 +127,36 @@ void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, boo
 
                         for (x = 0; x < outputWidth; ++x)
                         {
-                            uint16_t sample = color[getPixelSms(data, x, (y + i), GAMEGEAR_FRAME_WIDTH, GAMEGEAR_FRAME_HEIGHT, outputWidth, outputHeight, isGameGear) & PIXEL_MASK];
+                            uint16_t sample = color[getPixelSms(data, x, (y + i), SMS_FRAME_WIDTH, SMS_FRAME_HEIGHT, outputWidth, outputHeight, isGameGear) & PIXEL_MASK];
+                            line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
+                        }
+                    }
+                    if (sending_line != -1)
+                        send_line_finish();
+                    sending_line = calc_line;
+                    calc_line = (calc_line == 1) ? 0 : 1;
+                    send_lines_ext(y, 0, outputWidth, line[sending_line], LINE_COUNT);
+                }
+                send_line_finish();
+                break;
+
+            default:
+                outputHeight = LCD_HEIGHT;
+                outputWidth = SMS_FRAME_WIDTH + (LCD_HEIGHT - SMS_FRAME_HEIGHT);
+                xpos = (LCD_WIDTH - outputWidth) / 2;
+
+                for (y = 0; y < outputHeight; y += LINE_COUNT)
+                {
+                    for (int i = 0; i < LINE_COUNT; ++i)
+                    {
+                        if ((y + i) >= outputHeight)
+                            break;
+
+                        int index = (i)*outputWidth;
+
+                        for (x = 0; x < outputWidth; ++x)
+                        {
+                            uint16_t sample = color[getPixelSms(data, x, (y + i), SMS_FRAME_WIDTH, SMS_FRAME_HEIGHT, outputWidth, outputHeight, isGameGear) & PIXEL_MASK];
                             line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
                         }
                     }
@@ -169,13 +167,18 @@ void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, boo
                     send_lines_ext(y, xpos, outputWidth, line[sending_line], LINE_COUNT);
                 }
                 send_line_finish();
+                break;
             }
-            else
+        }
+        else
+        {
+            switch (scale)
             {
-                int outputHeight = GAMEGEAR_FRAME_HEIGHT;
-                int outputWidth = GAMEGEAR_FRAME_WIDTH;
-                int xpos = (LCD_WIDTH - outputWidth) / 2;
-                int ypos = (LCD_HEIGHT - outputHeight) / 2;
+            case SCALE_NONE:
+                outputHeight = GAMEGEAR_FRAME_HEIGHT;
+                outputWidth = GAMEGEAR_FRAME_WIDTH;
+                xpos = (LCD_WIDTH - outputWidth) / 2;
+                ypos = (LCD_HEIGHT - outputHeight) / 2;
 
                 for (y = 0; y < outputHeight; y += LINE_COUNT)
                 {
@@ -200,6 +203,64 @@ void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, boo
                     send_lines_ext(ypos + y, xpos, outputWidth, line[sending_line], LINE_COUNT);
                 }
                 send_line_finish();
+                break;
+
+            case SCALE_STRETCH:
+                outputHeight = LCD_HEIGHT;
+                outputWidth = LCD_WIDTH;
+
+                for (y = 0; y < outputHeight; y += LINE_COUNT)
+                {
+                    for (int i = 0; i < LINE_COUNT; ++i)
+                    {
+                        if ((y + i) >= outputHeight)
+                            break;
+
+                        int index = (i)*outputWidth;
+
+                        for (x = 0; x < outputWidth; ++x)
+                        {
+                            uint16_t sample = color[getPixelSms(data, x, (y + i), GAMEGEAR_FRAME_WIDTH, GAMEGEAR_FRAME_HEIGHT, outputWidth, outputHeight, isGameGear) & PIXEL_MASK];
+                            line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
+                        }
+                    }
+                    if (sending_line != -1)
+                        send_line_finish();
+                    sending_line = calc_line;
+                    calc_line = (calc_line == 1) ? 0 : 1;
+                    send_lines_ext(y, 0, outputWidth, line[sending_line], LINE_COUNT);
+                }
+                send_line_finish();
+                break;
+
+            default:
+                outputHeight = LCD_HEIGHT;
+                outputWidth = GAMEGEAR_FRAME_WIDTH + (LCD_HEIGHT - GAMEGEAR_FRAME_HEIGHT);
+                xpos = (LCD_WIDTH - outputWidth) / 2;
+
+                for (y = 0; y < outputHeight; y += LINE_COUNT)
+                {
+                    for (int i = 0; i < LINE_COUNT; ++i)
+                    {
+                        if ((y + i) >= outputHeight)
+                            break;
+
+                        int index = (i)*outputWidth;
+
+                        for (x = 0; x < outputWidth; ++x)
+                        {
+                            uint16_t sample = color[getPixelSms(data, x, (y + i), GAMEGEAR_FRAME_WIDTH, GAMEGEAR_FRAME_HEIGHT, outputWidth, outputHeight, isGameGear) & PIXEL_MASK];
+                            line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
+                        }
+                    }
+                    if (sending_line != -1)
+                        send_line_finish();
+                    sending_line = calc_line;
+                    calc_line = (calc_line == 1) ? 0 : 1;
+                    send_lines_ext(y, xpos, outputWidth, line[sending_line], LINE_COUNT);
+                }
+                send_line_finish();
+                break;
             }
         }
     }

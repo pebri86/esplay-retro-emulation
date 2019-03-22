@@ -141,11 +141,12 @@ void run_to_vblank()
 }
 
 volatile bool videoTaskIsRunning = false;
+esplay_scale_option scale_opt;
 
 void videoTask(void *arg)
 {
     esp_err_t ret;
-
+    scale_opt = get_scale_option_settings();
     videoTaskIsRunning = true;
 
     uint16_t *param;
@@ -156,7 +157,7 @@ void videoTask(void *arg)
         if (param == 1)
             break;
 
-        write_gb_frame(param, true);
+        write_gb_frame(param, scale_opt);
 
         xQueueReceive(vidQueue, &param, portMAX_DELAY);
     }
@@ -413,7 +414,7 @@ void app_main(void)
     }
 
     // Clear display
-    write_gb_frame(NULL, false);
+    write_gb_frame(NULL, SCALE_STRETCH);
 
     // Load ROM
     loader_init(NULL);
@@ -438,7 +439,7 @@ void app_main(void)
     vidQueue = xQueueCreate(1, sizeof(uint16_t *));
     audioQueue = xQueueCreate(1, sizeof(uint16_t *));
 
-    xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&videoTask, "videoTask", 2048, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(&audioTask, "audioTask", 2048, NULL, 5, NULL, 1); //768
 
     //debug_trace = 1;

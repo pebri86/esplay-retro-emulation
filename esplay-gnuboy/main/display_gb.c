@@ -46,9 +46,9 @@ static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int
     return col;
 }
 
-void write_gb_frame(const uint16_t *data, bool scale)
+void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
 {
-    short x, y;
+    short x, y, xpos, ypos, outputWidth, outputHeight;
     int sending_line = -1;
     int calc_line = 0;
 
@@ -70,39 +70,11 @@ void write_gb_frame(const uint16_t *data, bool scale)
     }
     else
     {
-        if (scale)
+        switch (scale)
         {
-            int outputHeight = LCD_HEIGHT;
-            int outputWidth = GB_FRAME_WIDTH + (LCD_HEIGHT - GB_FRAME_HEIGHT);
-            int xpos = (LCD_WIDTH - outputWidth) / 2;
-
-            for (y = 0; y < outputHeight; y += LINE_COUNT)
-            {
-                for (int i = 0; i < LINE_COUNT; ++i)
-                {
-                    if ((y + i) >= outputHeight)
-                        break;
-
-                    int index = (i)*outputWidth;
-
-                    for (x = 0; x < outputWidth; ++x)
-                    {
-                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight);
-                        line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
-                    }
-                }
-                if (sending_line != -1)
-                    send_line_finish();
-                sending_line = calc_line;
-                calc_line = (calc_line == 1) ? 0 : 1;
-                send_lines_ext(y, xpos, outputWidth, line[sending_line], LINE_COUNT);
-            }
-            send_line_finish();
-        }
-        else
-        {
-            int ypos = (LCD_HEIGHT - GB_FRAME_HEIGHT) / 2;
-            int xpos = (LCD_WIDTH - GB_FRAME_WIDTH) / 2;
+        case SCALE_NONE :
+            ypos = (LCD_HEIGHT - GB_FRAME_HEIGHT) / 2;
+            xpos = (LCD_WIDTH - GB_FRAME_WIDTH) / 2;
 
             for (y = 0; y < GB_FRAME_HEIGHT; y += LINE_COUNT)
             {
@@ -127,6 +99,64 @@ void write_gb_frame(const uint16_t *data, bool scale)
                 send_lines_ext(y + ypos, xpos, GB_FRAME_WIDTH, line[sending_line], LINE_COUNT);
             }
             send_line_finish();
+            break;
+
+        case SCALE_STRETCH :
+            outputHeight = LCD_HEIGHT;
+            outputWidth = LCD_WIDTH;
+
+            for (y = 0; y < outputHeight; y += LINE_COUNT)
+            {
+                for (int i = 0; i < LINE_COUNT; ++i)
+                {
+                    if ((y + i) >= outputHeight)
+                        break;
+
+                    int index = (i)*outputWidth;
+
+                    for (x = 0; x < outputWidth; ++x)
+                    {
+                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight);
+                        line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
+                    }
+                }
+                if (sending_line != -1)
+                    send_line_finish();
+                sending_line = calc_line;
+                calc_line = (calc_line == 1) ? 0 : 1;
+                send_lines_ext(y, 0, outputWidth, line[sending_line], LINE_COUNT);
+            }
+            send_line_finish();
+            break;
+
+        default :
+            outputHeight = LCD_HEIGHT;
+            outputWidth = GB_FRAME_WIDTH + (LCD_HEIGHT - GB_FRAME_HEIGHT);
+            xpos = (LCD_WIDTH - outputWidth) / 2;
+
+            for (y = 0; y < outputHeight; y += LINE_COUNT)
+            {
+                for (int i = 0; i < LINE_COUNT; ++i)
+                {
+                    if ((y + i) >= outputHeight)
+                        break;
+
+                    int index = (i)*outputWidth;
+
+                    for (x = 0; x < outputWidth; ++x)
+                    {
+                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight);
+                        line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
+                    }
+                }
+                if (sending_line != -1)
+                    send_line_finish();
+                sending_line = calc_line;
+                calc_line = (calc_line == 1) ? 0 : 1;
+                send_lines_ext(y, xpos, outputWidth, line[sending_line], LINE_COUNT);
+            }
+            send_line_finish();
+            break;
         }
     }
 }

@@ -238,15 +238,17 @@ static void custom_blit(bitmap_t *bmp, int num_dirties, rect_t *dirty_rects) {
 
 //This runs on core 1.
 volatile bool exitVideoTaskFlag = false;
+esplay_scale_option opt;
 static void videoTask(void *arg) {
     bitmap_t *bmp=NULL;
+    opt = get_scale_option_settings();
     while(1)
     {
         xQueuePeek(vidQueue, &bmp, portMAX_DELAY);
 
         if (bmp == 1) break;
 
-        write_nes_frame(bmp);
+        write_nes_frame(bmp, opt);
 
         xQueueReceive(vidQueue, &bmp, portMAX_DELAY);
     }
@@ -473,7 +475,7 @@ int osd_init()
     if (osd_init_sound())
         return -1;
 
-    write_nes_frame(NULL);
+    write_nes_frame(NULL, SCALE_STRETCH);
     vidQueue=xQueueCreate(1, sizeof(bitmap_t *));
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 2048, NULL, 5, NULL, 1);
     osd_initinput();

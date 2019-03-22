@@ -48,7 +48,7 @@ char emu_dir[10][20] = {"nes", "gb", "gbc", "sms", "gg", "col"};
 int emu_slot[10] = {1, 2, 2, 3, 3, 3};
 char brightness[10][5] = {"10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"};
 char volume[10][10] = {"Mute", "25%", "50%", "75%", "100%"};
-char scale_options[10][10] = {"None", "Fit Ratio", "Stretch"};
+char scale_options[10][10] = {"Disable Scaling", "Screen Fit", "Stretch"};
 
 char target[256] = "";
 int e = 0, last_e = 100, x, y = 0, count = 0;

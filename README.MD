@@ -30,8 +30,8 @@ Extract skeleton.zip from docs, and copy to the root of sdcard. Please provide R
 All Contributors
 ------------
 Thanks to contribute your work for this project. 
-- [gaboze-express]
+- [32teeth]
 
 
-[gaboze-express]:https://github.com/gaboze-express
+[32teeth]:https://github.com/32teeth
 

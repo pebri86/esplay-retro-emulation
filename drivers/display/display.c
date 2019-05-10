@@ -15,7 +15,7 @@
 #define LINE_BUFFERS (2)
 #define LINE_COUNT   (4)
 
-#define ILI9342
+//#define ILI9342
 
 uint16_t* line[LINE_BUFFERS];
 extern uint16_t myPalette[];

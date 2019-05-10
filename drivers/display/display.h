@@ -8,9 +8,9 @@
 // Make sure all of the definitions in this header have a C binding.
 //
 //*****************************************************************************
-#define ILI9342
+//#define ILI9342
 
-#include "ili9342.h"
+//#include "ili9342.h"
 #ifdef ILI9342
     #include "ili9342.h"
 #else

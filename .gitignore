@@ -47,6 +47,7 @@ esplay-smsplusgx/sdkconfig.old
 *.i*86
 *.x86_64
 *.hex
+*.fw
 
 # Debug files
 *.dSYM/

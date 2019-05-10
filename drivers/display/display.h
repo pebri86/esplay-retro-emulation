@@ -8,17 +8,16 @@
 // Make sure all of the definitions in this header have a C binding.
 //
 //*****************************************************************************
-//#define ILI9342
 
-//#include "ili9342.h"
-#ifdef ILI9342
+#if (CONFIG_HW_LCD_TYPE == LCD_TYPE_ILI9342)
     #include "ili9342.h"
+    #define LCD_WIDTH ILI9342_HOR_RES
+    #define LCD_HEIGHT ILI9342_VER_RES
 #else
     #include "ili9341.h"
+    #define LCD_WIDTH ILI9341_HOR_RES
+    #define LCD_HEIGHT ILI9341_VER_RES
 #endif
-
-#define LCD_WIDTH ILI9341_HOR_RES
-#define LCD_HEIGHT ILI9341_VER_RES
 
 #ifdef __cplusplus
 extern "C"

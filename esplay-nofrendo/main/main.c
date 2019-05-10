@@ -28,6 +28,8 @@
 const char* SD_BASE_PATH = "/sd";
 static char* ROM_DATA = (char*)0x3f800000;
 
+extern bool forceConsoleReset;
+
 char *osd_getromdata()
 {
     printf("Initialized. ROM@%p\n", ROM_DATA);
@@ -81,11 +83,47 @@ int app_main(void)
     //display_show_splash();
     //vTaskDelay(1000);
 
-    // ui init
-    if(!gpio_get_level(MENU))
+    switch (esp_sleep_get_wakeup_cause())
     {
-        system_application_set(0);
-        esp_restart();
+        case ESP_SLEEP_WAKEUP_EXT0:
+        {
+            printf("app_main: ESP_SLEEP_WAKEUP_EXT0 deep sleep reset\n");
+            break;
+        }
+
+        case ESP_SLEEP_WAKEUP_EXT1:
+        case ESP_SLEEP_WAKEUP_TIMER:
+        case ESP_SLEEP_WAKEUP_TOUCHPAD:
+        case ESP_SLEEP_WAKEUP_ULP:
+        case ESP_SLEEP_WAKEUP_UNDEFINED:
+        {
+            printf("app_main: Unexpected deep sleep reset\n");
+            input_gamepad_state bootState = gamepad_input_read_raw();
+
+            if (bootState.values[GAMEPAD_INPUT_MENU])
+            {
+                // Force return to menu to recover from
+                // ROM loading crashes
+
+                // Set menu application
+                system_application_set(0);
+
+                // Reset
+                esp_restart();
+            }
+
+            if (bootState.values[GAMEPAD_INPUT_START])
+            {
+                // Reset emulator if button held at startup to
+                // override save state
+                forceConsoleReset = true; //emu_reset();
+            }
+        }
+            break;
+
+        default:
+            printf("app_main: Not a deep sleep reset\n");
+            break;
     }
 
     // Load ROM

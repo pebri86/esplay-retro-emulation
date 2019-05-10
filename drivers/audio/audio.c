@@ -7,7 +7,7 @@
 
 static float Volume = 0.5f;
 static esplay_volume_level volumeLevel = ESPLAY_VOLUME_LEVEL1;
-static int volumeLevels[] = {0, 125, 250, 500, 1000};
+static int volumeLevels[] = {0, 25, 40, 80, 120};
 
 esplay_volume_level audio_volume_get()
 {
@@ -93,25 +93,4 @@ void audio_terminate()
     i2s_stop(I2S_NUM);
 
     i2s_start(I2S_NUM);
-
-    esp_err_t err = rtc_gpio_init(GPIO_NUM_25);
-    err = rtc_gpio_init(GPIO_NUM_26);
-    if (err != ESP_OK)
-    {
-        abort();
-    }
-
-    err = rtc_gpio_set_direction(GPIO_NUM_25, RTC_GPIO_MODE_OUTPUT_ONLY);
-    err = rtc_gpio_set_direction(GPIO_NUM_26, RTC_GPIO_MODE_OUTPUT_ONLY);
-    if (err != ESP_OK)
-    {
-        abort();
-    }
-
-    err = rtc_gpio_set_level(GPIO_NUM_25, 0);
-    err = rtc_gpio_set_level(GPIO_NUM_26, 0);
-    if (err != ESP_OK)
-    {
-        abort();
-    }
 }

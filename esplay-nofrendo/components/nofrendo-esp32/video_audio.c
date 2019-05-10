@@ -467,6 +467,8 @@ static int logprint(const char *string)
 /*
 ** Startup
 */
+// Boot state overrides
+bool forceConsoleReset = false;
 
 int osd_init()
 {

@@ -407,10 +407,51 @@ void app_main(void)
     gamepad_init();
 
     // ui init
-    if (!gpio_get_level(MENU))
+    // Boot state overrides
+    bool forceConsoleReset = false;
+
+    switch (esp_sleep_get_wakeup_cause())
     {
-        system_application_set(0);
-        esp_restart();
+        case ESP_SLEEP_WAKEUP_EXT0:
+        {
+            printf("app_main: ESP_SLEEP_WAKEUP_EXT0 deep sleep wake\n");
+            break;
+        }
+
+        case ESP_SLEEP_WAKEUP_EXT1:
+        case ESP_SLEEP_WAKEUP_TIMER:
+        case ESP_SLEEP_WAKEUP_TOUCHPAD:
+        case ESP_SLEEP_WAKEUP_ULP:
+        case ESP_SLEEP_WAKEUP_UNDEFINED:
+        {
+            printf("app_main: Non deep sleep startup\n");
+
+            input_gamepad_state bootState = gamepad_input_read_raw();
+
+            if (bootState.values[GAMEPAD_INPUT_MENU])
+            {
+                // Force return to factory app to recover from
+                // ROM loading crashes
+
+                // Set menu application
+                system_application_set(0);
+
+                // Reset
+                esp_restart();
+            }
+
+            if (bootState.values[GAMEPAD_INPUT_START])
+            {
+                // Reset emulator if button held at startup to
+                // override save state
+                forceConsoleReset = true;
+            }
+
+            break;
+        }
+        default:
+            printf("app_main: Not a deep sleep reset\n");
+            break;
     }
 
     // Clear display
@@ -497,6 +538,12 @@ void app_main(void)
 
     ushort menuButtonFrameCount = 0;
     bool ignoreMenuButton = lastJoysticState.values[GAMEPAD_INPUT_MENU];
+
+    // Reset if button held at startup
+    if (forceConsoleReset)
+    {
+        emu_reset();
+    }
 
     gamepad_read(&lastJoysticState);
     while (true)

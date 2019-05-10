@@ -8,7 +8,15 @@
 // Make sure all of the definitions in this header have a C binding.
 //
 //*****************************************************************************
-#include "ili9341.h"
+#define ILI9342
+
+#include "ili9342.h"
+#ifdef ILI9342
+    #include "ili9342.h"
+#else
+    #include "ili9341.h"
+#endif
+
 #define LCD_WIDTH ILI9341_HOR_RES
 #define LCD_HEIGHT ILI9341_VER_RES
 

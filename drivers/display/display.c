@@ -15,6 +15,8 @@
 #define LINE_BUFFERS (2)
 #define LINE_COUNT   (4)
 
+#define ILI9342
+
 uint16_t* line[LINE_BUFFERS];
 extern uint16_t myPalette[];
 
@@ -25,17 +27,30 @@ void set_display_brightness(int percent)
 
 void backlight_deinit()
 {
-    ili9341_backlight_deinit();
+
+    #ifdef ILI9342
+        ili9342_backlight_deinit();
+    #else
+        ili9341_backlight_deinit();
+    #endif
 }
 
 void display_prepare(int percent)
 {
-    ili9341_prepare();
+    #ifdef ILI9342
+        ili9342_prepare();
+    #else
+        ili9341_prepare();
+    #endif
 }
 
 void display_poweroff(int percent)
 {
-    ili9341_poweroff();
+    #ifdef ILI9342
+        ili9342_poweroff();
+    #else
+        ili9341_poweroff();
+    #endif
 }
 
 void write_frame_rectangleLE(short left, short top, short width, short height, uint16_t* buffer)
@@ -146,5 +161,9 @@ void display_init()
     }
     // Initialize the LCD
     disp_spi_init();
-    ili9341_init();
+    #ifdef ILI9342
+        ili9342_init();
+    #else
+        ili9341_init();
+    #endif
 }

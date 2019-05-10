@@ -34,8 +34,8 @@ extern "C"
     /**********************
  * GLOBAL PROTOTYPES
  **********************/
-    int is_backlight_initialized();
-    void backlight_percentage_set(int value);
+    int ili9342_is_backlight_initialized();
+    void ili9342_backlight_percentage_set(int value);
     void ili9342_init(void);
     void ili9342_backlight_deinit();
     void ili9342_prepare();

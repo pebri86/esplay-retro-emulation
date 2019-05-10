@@ -13,14 +13,18 @@
 #include "image_low_bat.h"
 
 #define LINE_BUFFERS (2)
-#define LINE_COUNT   (4)
+#define LINE_COUNT   (8)
 
 uint16_t* line[LINE_BUFFERS];
 extern uint16_t myPalette[];
 
 void set_display_brightness(int percent)
 {
-    backlight_percentage_set(percent);
+    #if (CONFIG_HW_LCD_TYPE == LCD_TYPE_ILI9342)
+        ili9342_backlight_percentage_set(percent);
+    #else
+        ili9341_backlight_percentage_set(percent);
+    #endif
 }
 
 void backlight_deinit()

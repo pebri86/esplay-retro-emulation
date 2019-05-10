@@ -125,12 +125,12 @@ void ili9341_init(void)
 	backlight_init();
 }
 
-int is_backlight_initialized()
+int ili9341_is_backlight_initialized()
 {
 	return isBackLightIntialized;
 }
 
-void backlight_percentage_set(int value)
+void ili9341_backlight_percentage_set(int value)
 {
 	int duty = DUTY_MAX * (value * 0.01f);
 

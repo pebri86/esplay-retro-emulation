@@ -9,6 +9,9 @@
 //
 //*****************************************************************************
 
+#define LCD_TYPE_ILI9341 0
+#define LCD_TYPE_ILI9342 1
+
 #if (CONFIG_HW_LCD_TYPE == LCD_TYPE_ILI9342)
     #include "ili9342.h"
     #define LCD_WIDTH ILI9342_HOR_RES

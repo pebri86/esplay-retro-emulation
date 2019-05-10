@@ -8,16 +8,24 @@
 
 extern uint16_t *line[];
 
-#define LCD_WIDTH 320
-#define LCD_HEIGHT 240
-#define LINE_COUNT (4)
+#define NEAREST_NEIGHBOR_ALG
+#define LINE_COUNT (8)
 
-/* Resize using bilinear interpolation */
-static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int w2, int h2)
+static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int w2, int h2, int x_ratio, int y_ratio)
 {
-    int x_diff, y_diff, xv, yv, red, green, blue, col, a, b, c, d, index;
-    int x_ratio = (int)(((w1 - 1) << 16) / w2) + 1;
-    int y_ratio = (int)(((h1 - 1) << 16) / h2) + 1;
+    uint16_t col;
+#ifdef NEAREST_NEIGHBOR_ALG
+    /* Resize using nearest neighbor alghorithm */
+    /* Simple and fastest way but low quality   */
+    int x2 = ((x*x_ratio)>>16);
+    int y2 = ((y*y_ratio)>>16);
+    col = bufs[(y2*w1)+x2];
+
+    return col;
+#else
+    /* Resize using bilinear interpolation */
+    /* higher quality but lower performance, */
+    int x_diff, y_diff, xv, yv, red, green, blue, a, b, c, d, index;
 
     xv = (int)((x_ratio * x) >> 16);
     yv = (int)((y_ratio * y) >> 16);
@@ -44,6 +52,7 @@ static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int
     col = ((int)red << 11) | ((int)green << 5) | ((int)blue);
 
     return col;
+#endif
 }
 
 void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
@@ -51,6 +60,7 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
     short x, y, xpos, ypos, outputWidth, outputHeight;
     int sending_line = -1;
     int calc_line = 0;
+    int x_ratio, y_ratio;
 
     if (data == NULL)
     {
@@ -104,6 +114,8 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
         case SCALE_STRETCH :
             outputHeight = LCD_HEIGHT;
             outputWidth = LCD_WIDTH;
+            x_ratio = (int)((GB_FRAME_WIDTH<<16)/outputWidth) +1;
+            y_ratio = (int)((GB_FRAME_HEIGHT<<16)/outputHeight) +1; 
 
             for (y = 0; y < outputHeight; y += LINE_COUNT)
             {
@@ -116,7 +128,7 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
 
                     for (x = 0; x < outputWidth; ++x)
                     {
-                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight);
+                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight, x_ratio, y_ratio);
                         line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
                     }
                 }
@@ -133,6 +145,8 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
             outputHeight = LCD_HEIGHT;
             outputWidth = GB_FRAME_WIDTH + (LCD_HEIGHT - GB_FRAME_HEIGHT);
             xpos = (LCD_WIDTH - outputWidth) / 2;
+            x_ratio = (int)((GB_FRAME_WIDTH<<16)/outputWidth) +1;
+            y_ratio = (int)((GB_FRAME_HEIGHT<<16)/outputHeight) +1; 
 
             for (y = 0; y < outputHeight; y += LINE_COUNT)
             {
@@ -145,7 +159,7 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
 
                     for (x = 0; x < outputWidth; ++x)
                     {
-                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight);
+                        uint16_t sample = getPixel(data, x, (y + i), GB_FRAME_WIDTH, GB_FRAME_HEIGHT, outputWidth, outputHeight, x_ratio, y_ratio);
                         line[calc_line][index++] = ((sample >> 8) | ((sample) << 8));
                     }
                 }

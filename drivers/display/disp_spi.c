@@ -51,7 +51,7 @@ void disp_spi_init(void)
         .sclk_io_num = DISP_SPI_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 4 * 320 * 2 + 8};
+        .max_transfer_sz = 8 * 320 * 2 + 8};
 
     spi_device_interface_config_t devcfg = {
         .clock_speed_hz = SPI_CLOCK_SPEED,

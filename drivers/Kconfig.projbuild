@@ -47,6 +47,7 @@ endchoice
 
 choice HW_LCD_TYPE_SEL
 	prompt "LCD type"
+	default HW_LCD_TYPE_ILI9341
 	depends on HW_CUSTOM
 
 config HW_LCD_TYPE_ILI9341

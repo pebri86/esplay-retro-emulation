@@ -5,6 +5,7 @@
 #include "display_gb.h"
 #include "display.h"
 #include "disp_spi.h"
+#include "menu_tile.h"
 
 extern uint16_t *line[];
 
@@ -17,9 +18,9 @@ static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int
 #ifdef NEAREST_NEIGHBOR_ALG
     /* Resize using nearest neighbor alghorithm */
     /* Simple and fastest way but low quality   */
-    int x2 = ((x*x_ratio)>>16);
-    int y2 = ((y*y_ratio)>>16);
-    col = bufs[(y2*w1)+x2];
+    int x2 = ((x * x_ratio) >> 16);
+    int y2 = ((y * y_ratio) >> 16);
+    col = bufs[(y2 * w1) + x2];
 
     return col;
 #else
@@ -82,7 +83,7 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
     {
         switch (scale)
         {
-        case SCALE_NONE :
+        case SCALE_NONE:
             ypos = (LCD_HEIGHT - GB_FRAME_HEIGHT) / 2;
             xpos = (LCD_WIDTH - GB_FRAME_WIDTH) / 2;
 
@@ -111,11 +112,11 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
             send_line_finish();
             break;
 
-        case SCALE_STRETCH :
+        case SCALE_STRETCH:
             outputHeight = LCD_HEIGHT;
             outputWidth = LCD_WIDTH;
-            x_ratio = (int)((GB_FRAME_WIDTH<<16)/outputWidth) +1;
-            y_ratio = (int)((GB_FRAME_HEIGHT<<16)/outputHeight) +1; 
+            x_ratio = (int)((GB_FRAME_WIDTH << 16) / outputWidth) + 1;
+            y_ratio = (int)((GB_FRAME_HEIGHT << 16) / outputHeight) + 1;
 
             for (y = 0; y < outputHeight; y += LINE_COUNT)
             {
@@ -141,12 +142,12 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
             send_line_finish();
             break;
 
-        default :
+        default:
             outputHeight = LCD_HEIGHT;
             outputWidth = GB_FRAME_WIDTH + (LCD_HEIGHT - GB_FRAME_HEIGHT);
             xpos = (LCD_WIDTH - outputWidth) / 2;
-            x_ratio = (int)((GB_FRAME_WIDTH<<16)/outputWidth) +1;
-            y_ratio = (int)((GB_FRAME_HEIGHT<<16)/outputHeight) +1; 
+            x_ratio = (int)((GB_FRAME_WIDTH << 16) / outputWidth) + 1;
+            y_ratio = (int)((GB_FRAME_HEIGHT << 16) / outputHeight) + 1;
 
             for (y = 0; y < outputHeight; y += LINE_COUNT)
             {

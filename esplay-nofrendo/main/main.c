@@ -46,10 +46,11 @@ int app_main(void)
 
     nvs_flash_init();
 
-    system_init();
+    esplay_system_init();
 
     esp_err_t ret;
 
+    audio_init(32000);
 
     char* fileName;
 

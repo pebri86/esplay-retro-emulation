@@ -263,7 +263,7 @@ int rom_load()
 		display_show_hourglass();
 		// copy
 		sdcard_copy_file_to_memory(romPath, (void*)data);
-		
+
 		BankCache[0] = 1;
 	}
 

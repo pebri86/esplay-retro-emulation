@@ -39,7 +39,8 @@
 #include <vid_drv.h>
 #include <nofrendo.h>
 #include "nesstate.h"
-
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_system.h"
 
 #define  NES_CLOCK_DIVIDER    12
@@ -392,8 +393,13 @@ void nes_emulate(void)
         nes_reset(SOFT_RESET);
     }
 
+    extern int showOverlay;
     while (false == nes.poweroff)
     {
+        while (showOverlay)
+        {
+            vTaskDelay(10);
+        }
         startTime = xthal_get_ccount();
 
         bool renderFrame = ((skipFrame % 2) == 0);

@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    ".blade.php": "html",
+    ".tpl": "html",
+    "menu_tile.h": "c",
+    "disp_spi.h": "c"
+  }
+}

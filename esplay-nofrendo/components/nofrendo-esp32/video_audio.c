@@ -47,24 +47,26 @@
 #include "settings.h"
 #include "power.h"
 #include "display_nes.h"
+#include "menu.h"
 
-#define DEFAULT_SAMPLERATE      32000
-#define DEFAULT_FRAGSIZE        512
+#define DEFAULT_SAMPLERATE 32000
+#define DEFAULT_FRAGSIZE 512
 
-#define DEFAULT_FRAME_WIDTH     256
-#define DEFAULT_FRAME_HEIGHT    NES_VISIBLE_HEIGHT
+#define DEFAULT_FRAME_WIDTH 256
+#define DEFAULT_FRAME_HEIGHT NES_VISIBLE_HEIGHT
 
+int showOverlay = 0;
+static void SaveState();
 TimerHandle_t timer;
 
 //Seemingly, this will be called only once. Should call func with a freq of frequency,
 int osd_installtimer(int frequency, void *func, int funcsize, void *counter, int countersize)
 {
     printf("Timer install, freq=%d\n", frequency);
-    timer=xTimerCreate("nes",configTICK_RATE_HZ/frequency, pdTRUE, NULL, func);
+    timer = xTimerCreate("nes", configTICK_RATE_HZ / frequency, pdTRUE, NULL, func);
     xTimerStart(timer, 0);
     return 0;
 }
-
 
 /*
 ** Audio
@@ -73,28 +75,31 @@ static void (*audio_callback)(void *buffer, int length) = NULL;
 QueueHandle_t queue;
 static short *audio_frame;
 
-void do_audio_frame() {
-    int left=DEFAULT_SAMPLERATE/NES_REFRESH_RATE;
-    while(left) {
-        int n=DEFAULT_FRAGSIZE;
-        if (n>left) n=left;
+void do_audio_frame()
+{
+    int left = DEFAULT_SAMPLERATE / NES_REFRESH_RATE;
+    while (left)
+    {
+        int n = DEFAULT_FRAGSIZE;
+        if (n > left)
+            n = left;
         audio_callback(audio_frame, n);
         //16 bit mono -> 32-bit (16 bit r+l)
-        for (int i=n-1; i>=0; i--)
+        for (int i = n - 1; i >= 0; i--)
         {
             int sample = (int)audio_frame[i];
 
-            audio_frame[i*2]= (short)sample;
-            audio_frame[i*2+1] = (short)sample;
+            audio_frame[i * 2] = (short)sample;
+            audio_frame[i * 2 + 1] = (short)sample;
         }
         audio_submit(audio_frame, n);
-        left-=n;
+        left -= n;
     }
 }
 
 void osd_setsound(void (*playfunc)(void *buffer, int length))
 {
-   //Indicates we should call playfunc() to get more data.
+    //Indicates we should call playfunc() to get more data.
     audio_callback = playfunc;
 }
 
@@ -103,11 +108,10 @@ static void osd_stopsound(void)
     audio_callback = NULL;
 }
 
-
 static int osd_init_sound(void)
 {
-    audio_frame=malloc(4*DEFAULT_FRAGSIZE);
-    audio_init(DEFAULT_SAMPLERATE);
+    audio_frame = malloc(4 * DEFAULT_FRAGSIZE);
+    //audio_init(DEFAULT_SAMPLERATE);
     audio_callback = NULL;
     audio_volume_set(get_volume_settings());
 
@@ -137,19 +141,18 @@ static char fb[1]; //dummy
 QueueHandle_t vidQueue;
 
 viddriver_t sdlDriver =
-{
-   "Simple DirectMedia Layer",         /* name */
-   init,          /* init */
-   shutdown,      /* shutdown */
-   set_mode,      /* set_mode */
-   set_palette,   /* set_palette */
-   clear,         /* clear */
-   lock_write,    /* lock_write */
-   free_write,    /* free_write */
-   custom_blit,   /* custom_blit */
-   false          /* invalidate flag */
+    {
+        "Simple DirectMedia Layer", /* name */
+        init,                       /* init */
+        shutdown,                   /* shutdown */
+        set_mode,                   /* set_mode */
+        set_palette,                /* set_palette */
+        clear,                      /* clear */
+        lock_write,                 /* lock_write */
+        free_write,                 /* free_write */
+        custom_blit,                /* custom_blit */
+        false                       /* invalidate flag */
 };
-
 
 bitmap_t *myBitmap;
 
@@ -192,24 +195,23 @@ static void set_palette(rgb_t *pal)
 
     for (i = 0; i < 256; i++)
     {
-        c=(pal[i].b>>3)+((pal[i].g>>2)<<5)+((pal[i].r>>3)<<11);
-        myPalette[i]=(c>>8)|((c&0xff)<<8);
+        c = (pal[i].b >> 3) + ((pal[i].g >> 2) << 5) + ((pal[i].r >> 3) << 11);
+        myPalette[i] = (c >> 8) | ((c & 0xff) << 8);
         //myPalette[i]=c;
     }
-
 }
 
 /* clear all frames to a particular color */
 static void clear(uint8 color)
 {
-//   SDL_FillRect(mySurface, 0, color);
+    //   SDL_FillRect(mySurface, 0, color);
 }
 
 /* acquire the directbuffer for writing */
 static bitmap_t *lock_write(void)
 {
-//   SDL_LockSurface(mySurface);
-    myBitmap = bmp_createhw((uint8*)fb, DEFAULT_FRAME_WIDTH, DEFAULT_FRAME_HEIGHT, DEFAULT_FRAME_WIDTH*2);
+    //   SDL_LockSurface(mySurface);
+    myBitmap = bmp_createhw((uint8 *)fb, DEFAULT_FRAME_WIDTH, DEFAULT_FRAME_HEIGHT, DEFAULT_FRAME_WIDTH * 2);
     return myBitmap;
 }
 
@@ -226,12 +228,13 @@ static void custom_blit(bitmap_t *bmp, int num_dirties, rect_t *dirty_rects) {
 */
 
 static uint8_t lcdfb[256 * 240];
-static void custom_blit(bitmap_t *bmp, int num_dirties, rect_t *dirty_rects) {
+static void custom_blit(bitmap_t *bmp, int num_dirties, rect_t *dirty_rects)
+{
     if (bmp->line[0] != NULL)
     {
         memcpy(lcdfb, bmp->line[0], 256 * 224);
 
-        void* arg = (void*)lcdfb;
+        void *arg = (void *)lcdfb;
         xQueueSend(vidQueue, &arg, portMAX_DELAY);
     }
 }
@@ -239,16 +242,53 @@ static void custom_blit(bitmap_t *bmp, int num_dirties, rect_t *dirty_rects) {
 //This runs on core 1.
 volatile bool exitVideoTaskFlag = false;
 esplay_scale_option opt;
-static void videoTask(void *arg) {
-    bitmap_t *bmp=NULL;
+static void videoTask(void *arg)
+{
+    bitmap_t *bmp = NULL;
     opt = get_scale_option_settings();
-    while(1)
+    while (1)
     {
         xQueuePeek(vidQueue, &bmp, portMAX_DELAY);
 
-        if (bmp == 1) break;
+        if (bmp == 1)
+            break;
 
-        write_nes_frame(bmp, opt);
+        if (bmp == 2)
+        {
+            write_nes_frame(NULL, opt);;
+            int ret = showMenu();
+            switch (ret)
+            {
+            case MENU_SAVE_STATE:
+                display_show_hourglass();
+                SaveState();
+                break;
+
+            case MENU_SAVE_EXIT:
+                display_show_hourglass();
+                SaveState();
+                system_application_set(0);
+                esp_restart();
+                break;
+
+            case MENU_RESET:
+                nes_reset(SOFT_RESET);
+                break;
+
+            case MENU_EXIT:
+                display_show_hourglass();
+                system_application_set(0);
+                esp_restart();
+                break;
+
+            default:
+                break;
+            }
+            showOverlay = 0;
+            vTaskDelay(10);
+        }
+        else
+            write_nes_frame(bmp, opt);
 
         xQueueReceive(vidQueue, &bmp, portMAX_DELAY);
     }
@@ -259,7 +299,9 @@ static void videoTask(void *arg) {
 
     vTaskDelete(NULL);
 
-    while(1){}
+    while (1)
+    {
+    }
 }
 
 static void SaveState()
@@ -273,14 +315,16 @@ static void SaveState()
 
 static void PowerDown()
 {
-    uint16_t* param = 1;
+    uint16_t *param = 1;
 
     // Stop tasks
     printf("PowerDown: stopping tasks.\n");
 
     xQueueSend(vidQueue, &param, portMAX_DELAY);
-    while (!exitVideoTaskFlag) { vTaskDelay(1); }
-
+    while (!exitVideoTaskFlag)
+    {
+        vTaskDelay(1);
+    }
 
     // state
     printf("PowerDown: Saving state.\n");
@@ -297,16 +341,13 @@ static void PowerDown()
     abort();
 }
 
-
 /*
 ** Input
 */
 
 static void osd_initinput()
 {
-    
 }
-
 
 input_gamepad_state previous_state;
 static bool ignoreMenuButton;
@@ -377,26 +418,9 @@ static int ConvertGamepadInput()
 
     if (!ignoreMenuButton && previous_state.values[GAMEPAD_INPUT_MENU] && !state.values[GAMEPAD_INPUT_MENU])
     {
-        printf("Stopping video queue.\n");
-
-        void* arg = 1;
+        showOverlay = 1;
+        void *arg = 2;
         xQueueSend(vidQueue, &arg, portMAX_DELAY);
-        while(exitVideoTaskFlag)
-        {
-             vTaskDelay(10);
-        }
-
-        //odroid_display_drain_spi();
-
-        SaveState();
-
-
-        // Set menu application
-        system_application_set(0);
-
-
-        // Reset
-        esp_restart();
     }
 
     previous_state = state;
@@ -406,7 +430,7 @@ static int ConvertGamepadInput()
 
 void osd_getinput(void)
 {
-    const int ev[16]={
+    const int ev[16] = {
         event_joypad1_select,
         0,
         0,
@@ -422,21 +446,23 @@ void osd_getinput(void)
         event_soft_reset,
         event_joypad1_a,
         event_joypad1_b,
-        event_hard_reset
-    };
-    static int oldb=0xffff;
-    int b=ConvertGamepadInput();
-    int chg=b^oldb;
+        event_hard_reset};
+    static int oldb = 0xffff;
+    int b = ConvertGamepadInput();
+    int chg = b ^ oldb;
     int x;
-    oldb=b;
+    oldb = b;
     event_t evh;
-    for (x=0; x<16; x++) {
-        if (chg&1) {
-            evh=event_get(ev[x]);
-            if (evh) evh((b&1)?INP_STATE_BREAK:INP_STATE_MAKE);
+    for (x = 0; x < 16; x++)
+    {
+        if (chg & 1)
+        {
+            evh = event_get(ev[x]);
+            if (evh)
+                evh((b & 1) ? INP_STATE_BREAK : INP_STATE_MAKE);
         }
-        chg>>=1;
-        b>>=1;
+        chg >>= 1;
+        b >>= 1;
     }
 }
 
@@ -478,8 +504,8 @@ int osd_init()
         return -1;
 
     write_nes_frame(NULL, SCALE_STRETCH);
-    vidQueue=xQueueCreate(1, sizeof(bitmap_t *));
-    xTaskCreatePinnedToCore(&videoTask, "videoTask", 2048, NULL, 5, NULL, 1);
+    vidQueue = xQueueCreate(1, sizeof(bitmap_t *));
+    xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024*3, NULL, 5, NULL, 1);
     osd_initinput();
     return 0;
 }

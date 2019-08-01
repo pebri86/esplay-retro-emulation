@@ -1,6 +1,6 @@
 # ESPlay Retro Emulation  ![retro-emulation](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/retro_emulation.png)
 
-[![youtube-video](http://img.youtube.com/vi/GPbRSVksWhE&t=4s/0.png)](http://www.youtube.com/watch?v=GPbRSVksWhE&t=4s)
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=GPbRSVksWhE&t=4s" target="_blank"><img src="http://img.youtube.com/vi/GPbRSVksWhE&t=4s/0.jpg" alt="Youtube Video" width="240" height="180" border="10" /></a>
 
 Retro Emulation Collection runs on [esplay-hardware](first prototype board) and [esplay-micro-hardware] (second prototype board - to be final prototype), an ESP32 Devices with WROVER Module (4MB PSRAM). 
 - Nofrendo NES Emulator for play Nintendo ROM

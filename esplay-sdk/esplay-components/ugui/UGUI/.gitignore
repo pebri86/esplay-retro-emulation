@@ -1,0 +1,36 @@
+*.zip
+*.exe
+*.bak
+*bak
+*bck
+*~
+
+*.pdf
+
+#kicad temp files
+*-cache.lib
+*.net
+_autosave*
+
+# gerber files:
+*.grb
+*.gbr
+*.drl
+
+# platformio temporaries:
+.pioenvs
+.clang_complete
+.gcc-flags.json
+
+
+#Qt
+*.user
+*.user.*
+*.autosave
+
+.travis.yml
+
+# build directories
+b/
+build/
+

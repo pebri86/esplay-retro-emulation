@@ -3,8 +3,8 @@
 # project subdirectory.
 #
 
-EXTRA_COMPONENT_DIRS := ../esplay-hal
-PROJECT_NAME := esplay-launcher
+EXTRA_COMPONENT_DIRS := $(ESPLAY_SDK)/esplay-components/
+PROJECT_NAME := RetroLauncher
 
 include $(IDF_PATH)/make/project.mk
 

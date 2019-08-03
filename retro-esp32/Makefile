@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-EXTRA_COMPONENT_DIRS := ../esplay-hal
+EXTRA_COMPONENT_DIRS := $(ESPLAY_SDK)/esplay-components/
 PROJECT_NAME := retro-esp32
 
 include $(IDF_PATH)/make/project.mk

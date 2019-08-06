@@ -123,7 +123,7 @@ void battery_level_read(battery_state *out_state)
         abort();
     }
 
-    const int sampleCount = 4;
+    const int sampleCount = 8;
 
     float adcSample = 0.0f;
     for (int i = 0; i < sampleCount; ++i)
@@ -150,7 +150,7 @@ void battery_level_read(battery_state *out_state)
     const float Vo = adc_value;
     const float Vs = (forced_adc_value > 0.0f) ? (forced_adc_value) : (Vo / R2 * (R1 + R2));
 
-    const float FullVoltage = 4.12f;
+    const float FullVoltage = 4.1f;
     const float EmptyVoltage = 3.4f;
 
     out_state->millivolts = (int)(Vs * 1000);

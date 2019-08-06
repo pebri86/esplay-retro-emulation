@@ -1,6 +1,7 @@
 // Esplay Launcher - launcher for ESPLAY based on Gogo Launcher for Odroid Go.
 
 #include "freertos/FreeRTOS.h"
+#include "esp_wifi.h"
 #include "esp_system.h"
 #include "esp_event.h"
 #include "esp_event_loop.h"
@@ -9,6 +10,7 @@
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
 #include "esp_heap_caps.h"
+#include "esp_http_server.h"
 
 #include "settings.h"
 #include "gamepad.h"
@@ -25,14 +27,20 @@
 
 char emu_dir[10][6] = {"nes", "gb", "gbc", "sms", "gg", "col"};
 int emu_slot[6] = {1, 2, 2, 3, 3, 3};
-int e = 0, last_e = 100;
 char *base_path = "/sd/roms/";
 extern uint16_t fb[];
 battery_state bat_state;
-input_gamepad_state joystick;
-int num_menu = 4;
-char menu_text[5][20] = {"WiFi AP *)", "Volume", "Brightness", "Scaling"};
-char scaling_text[3][20] = {"None", "Normal", "Stretch"};
+int num_menu = 5;
+char menu_text[5][20] = {"WiFi AP *", "Volume", "Brightness", "Upscaler", "Quit"};
+char scaling_text[3][20] = {"Native", "Normal", "Stretch"};
+uint8_t wifi_en;
+
+esp_err_t start_file_server(const char *base_path);
+
+esp_err_t event_handler(void *ctx, system_event_t *event)
+{
+    return ESP_OK;
+}
 
 static void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
 {
@@ -99,8 +107,16 @@ static void drawVolume(int volume)
 static void drawHomeScreen()
 {
     UG_SetForecolor(C_YELLOW);
+    UG_SetBackcolor(C_BLACK);
     char *title = "ESPlay Micro";
     UG_PutString((320 / 2) - (strlen(title) * 9 / 2), 0, title);
+
+    if (wifi_en)
+    {
+        title = "Wifi ON, go to http://192.168.4.1/";
+        UG_PutString((320 / 2) - (strlen(title) * 9 / 2), 20, title);
+    }
+
     UG_SetForecolor(C_WHITE);
     UG_SetBackcolor(C_BLACK);
     UG_PutString(40, 50 + (56 * 2) + 13, "    Browse");
@@ -125,12 +141,8 @@ static void drawHomeScreen()
     battery_level_read(&bat_state);
     drawVolume(get_volume_settings() * 25);
     drawBattery(bat_state.percentage);
-}
-
-static void debounce(int key)
-{
-    while (joystick.values[key])
-        gamepad_read(&joystick);
+    if (wifi_en)
+        renderGraphics(320 - (50), 0, 24 * 6, 0, 24, 12);
 }
 
 // Return to last emulator if 'B' pressed....
@@ -160,8 +172,9 @@ static int resume(void)
         {
             printf("resume - extension=%s, slot=%i\n", extension, i);
             system_application_set(emu_slot[i]); // set emulator slot
+            ui_clear_screen();
+            ui_flush();
             display_show_hourglass();
-            vTaskDelay(10);
             esp_restart(); // reboot!
         }
     }
@@ -185,24 +198,23 @@ static void showOptionPage(int selected)
     UG_FillFrame(0, 240 - 16 - 1, 320 - 1, 240 - 1, C_BLUE);
     UG_SetForecolor(C_WHITE);
     UG_SetBackcolor(C_BLUE);
-    msg = "  Browse     Change    Quit";
+    msg = "     Browse      Change       ";
     UG_PutString((320 / 2) - (strlen(msg) * 9 / 2), 240 - 15, msg);
 
-    UG_FillCircle(22, 240 - 10, 7, C_WHITE);
+    UG_FillRoundFrame(15, 240 - 15 - 1, 15 + (5 * 9) + 8, 237, 7, C_WHITE);
     UG_SetForecolor(C_BLACK);
     UG_SetBackcolor(C_WHITE);
-    UG_PutString(20, 240 - 15, "Up Dn");
+    UG_PutString(20, 240 - 15, "Up/Dn");
 
-    UG_FillCircle(95, 240 - 10, 7, C_WHITE);
-    UG_PutString(92, 240 - 15, "< >");
-
-    UG_FillCircle(168, 240 - 10, 7, C_WHITE);
-    UG_PutString(165, 240 - 15, "B");
+    UG_FillRoundFrame(140, 240 - 15 - 1, 140 + (3 * 9) + 8, 237, 7, C_WHITE);
+    UG_PutString(145, 240 - 15, "< >");
     /* End Footer */
+
+    UG_FillFrame(0, 16, 320 - 1, 240 - 20, C_BLACK);
 
     UG_SetForecolor(C_RED);
     UG_SetBackcolor(C_BLACK);
-    UG_PutString(0, 240 - 16 - 14, "*) restart required");
+    UG_PutString(0, 240 - 16 - 14, "* restart required");
     uint8_t wifi = get_wifi_settings();
     uint8_t volume = get_volume_settings();
     uint8_t bright = get_backlight_settings();
@@ -210,10 +222,10 @@ static void showOptionPage(int selected)
 
     for (int i = 0; i < num_menu; i++)
     {
-        short top = 18 + i * 13 + 2;
+        short top = 18 + i * 15 + 8;
         if (i == selected)
         {
-            UG_FillFrame(0, top - 1, 320, top + 13, C_YELLOW);
+            UG_FillFrame(0, top - 1, 319, top + 13, C_YELLOW);
             UG_SetForecolor(C_BLACK);
             UG_SetBackcolor(C_YELLOW);
         }
@@ -234,15 +246,15 @@ static void showOptionPage(int selected)
             break;
         case 1:
             if (i == selected)
-                ui_display_progress((320 - 100 - 1), top, 100, 12, (volume / 4) * 100.0f, C_BLACK, C_YELLOW, C_BLACK);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 4, C_BLACK, C_YELLOW, C_BLACK);
             else
-                ui_display_progress((320 - 100 - 1), top, 100, 12, (volume / 4) * 100.0f, C_WHITE, C_BLACK, C_WHITE);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 4, C_WHITE, C_BLACK, C_WHITE);
             break;
         case 2:
             if (i == selected)
-                ui_display_progress((320 - 100 - 1), top, 100, 12, (bright / 100) * 100.0f, C_BLACK, C_YELLOW, C_BLACK);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_BLACK, C_YELLOW, C_BLACK);
             else
-                ui_display_progress((320 - 100 - 1), top, 100, 12, (bright / 100) * 100.0f, C_WHITE, C_BLACK, C_WHITE);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_WHITE, C_BLACK, C_WHITE);
             break;
         case 3:
             UG_PutString(319 - (strlen(scaling_text[scaling]) * 9), top, scaling_text[scaling]);
@@ -299,18 +311,22 @@ static int showOption()
                 v--;
                 if (v < 0)
                     v = 0;
+                set_volume_settings(v);
                 break;
             case 2:
                 v = get_backlight_settings();
                 v -= 5;
-                if (v < 0)
-                    v = 0;
+                if (v < 1)
+                    v = 1;
+                set_backlight_settings(v);
+                set_display_brightness(v);
                 break;
             case 3:
                 v = get_scale_option_settings();
                 v--;
                 if (v < 0)
-                    v = 0;
+                    v = 2;
+                set_scale_option_settings(v);
                 break;
 
             default:
@@ -334,18 +350,22 @@ static int showOption()
                 v++;
                 if (v > 4)
                     v = 4;
+                set_volume_settings(v);
                 break;
             case 2:
                 v = get_backlight_settings();
                 v += 5;
                 if (v > 100)
                     v = 100;
+                set_backlight_settings(v);
+                set_display_brightness(v);
                 break;
             case 3:
                 v = get_scale_option_settings();
                 v++;
                 if (v > 2)
-                    v = 2;
+                    v = 0;
+                set_scale_option_settings(v);
                 break;
 
             default:
@@ -353,8 +373,12 @@ static int showOption()
             }
             showOptionPage(selected);
         }
-        if (!prevKey.values[GAMEPAD_INPUT_B] && key.values[GAMEPAD_INPUT_B])
-            break;
+        if (!prevKey.values[GAMEPAD_INPUT_A] && key.values[GAMEPAD_INPUT_A])
+            if (selected == 4)
+            {
+                vTaskDelay(10);
+                break;
+            }
 
         prevKey = key;
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -381,15 +405,60 @@ void app_main(void)
 
     battery_level_init();
 
+    battery_level_read(&bat_state);
+    if (bat_state.percentage == 0)
+    {
+        display_show_empty_battery();
+
+        printf("PowerDown: Powerdown LCD panel.\n");
+        display_poweroff();
+
+        printf("PowerDown: Entering deep sleep.\n");
+        system_sleep();
+
+        // Should never reach here
+        abort();
+    }
+
     if (esp_reset_reason() == ESP_RST_POWERON)
         display_show_splash();
 
     sdcard_open("/sd"); // map SD card.
 
     ui_init();
+    wifi_en = get_wifi_settings();
+
+    if (wifi_en)
+    {
+        tcpip_adapter_init();
+        ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+        ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+        ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+        wifi_config_t ap_config = {
+            .ap = {
+                .ssid = "esplay",
+                .authmode = WIFI_AUTH_OPEN,
+                .max_connection = 2,
+                .beacon_interval = 200}};
+        uint8_t channel = 5;
+        ap_config.ap.channel = channel;
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+
+        ESP_ERROR_CHECK(esp_wifi_start());
+
+        /* Start the file server */
+        ESP_ERROR_CHECK(start_file_server("/sd"));
+
+        printf("\nReady, AP on channel %d\n", (int)channel);
+    }
+    else
+    {
+        printf("\nAP Disabled, enabled wifi to use File Manager");
+    }
 
     drawHomeScreen();
-
     int menuItem = 0;
     int prevItem = 0;
     int scroll = 0;
@@ -397,22 +466,21 @@ void app_main(void)
     gamepad_read(&prevKey);
     while (1)
     {
+        input_gamepad_state joystick;
         gamepad_read(&joystick);
-        if (joystick.values[GAMEPAD_INPUT_LEFT] && !scroll)
+        if (!prevKey.values[GAMEPAD_INPUT_LEFT] && joystick.values[GAMEPAD_INPUT_LEFT] && !scroll)
         {
             menuItem++;
             if (menuItem > NUM_EMULATOR - 1)
                 menuItem = 0;
             scroll = -SCROLLSPD;
-            debounce(GAMEPAD_INPUT_LEFT);
         }
-        if (joystick.values[GAMEPAD_INPUT_RIGHT] && !scroll)
+        if (!prevKey.values[GAMEPAD_INPUT_RIGHT] && joystick.values[GAMEPAD_INPUT_RIGHT] && !scroll)
         {
             menuItem--;
             if (menuItem < 0)
                 menuItem = NUM_EMULATOR - 1;
             scroll = SCROLLSPD;
-            debounce(GAMEPAD_INPUT_RIGHT);
         }
         if (scroll > 0)
             scroll += SCROLLSPD;
@@ -433,7 +501,7 @@ void app_main(void)
         {
             scrollGfx(0, 78, 0, (56 * menuItem) + 12, 320, 56);
         }
-        if (joystick.values[GAMEPAD_INPUT_A])
+        if (!prevKey.values[GAMEPAD_INPUT_A] && joystick.values[GAMEPAD_INPUT_A])
         {
             char ext[4];
             strcpy(ext, ".");
@@ -447,8 +515,9 @@ void app_main(void)
             {
                 set_rom_name_settings(filename);
                 system_application_set(emu_slot[menuItem]);
+                ui_clear_screen();
+                ui_flush();
                 display_show_hourglass();
-                vTaskDelay(10);
                 esp_restart();
             }
             free(path);
@@ -457,12 +526,11 @@ void app_main(void)
             ui_clear_screen();
             ui_flush();
             drawHomeScreen();
-            debounce(GAMEPAD_INPUT_A);
         }
-        if (joystick.values[GAMEPAD_INPUT_B])
+        if (!prevKey.values[GAMEPAD_INPUT_B] && joystick.values[GAMEPAD_INPUT_B])
             resume();
 
-        if (joystick.values[GAMEPAD_INPUT_MENU])
+        if (!prevKey.values[GAMEPAD_INPUT_MENU] && joystick.values[GAMEPAD_INPUT_MENU])
         {
             int r = showOption();
             if (r)
@@ -470,8 +538,8 @@ void app_main(void)
 
             ui_clear_screen();
             drawHomeScreen();
-            debounce(GAMEPAD_INPUT_MENU);
         }
+        prevKey = joystick;
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }

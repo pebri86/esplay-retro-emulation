@@ -9,12 +9,12 @@
 #include "gamepad.h"
 #include "esplay-ui.h"
 
-#define MAX_CHR (320/9)
-#define MAX_ITEM (193/15) // 193 = LCD Height (240) - header(16) - footer(16) - char height (15)
+#define MAX_CHR (320 / 9)
+#define MAX_ITEM (193 / 15) // 193 = LCD Height (240) - header(16) - footer(16) - char height (15)
 
-uint16_t fb[320*240];
+uint16_t *fb;
 static UG_GUI *ugui;
- 
+
 static void pset(UG_S16 x, UG_S16 y, UG_COLOR color)
 {
   fb[y * 320 + x] = color;
@@ -32,6 +32,7 @@ void ui_flush()
 
 void ui_init()
 {
+  fb = malloc(320 * 240 * sizeof(uint16_t));
   ugui = malloc(sizeof(UG_GUI));
   UG_Init(ugui, pset, 320, 240);
   UG_FontSelect(&FONT_8X12);
@@ -41,7 +42,9 @@ void ui_init()
 
 void ui_deinit()
 {
+  free(fb);
   free(ugui);
+  fb = NULL;
   ugui = NULL;
 }
 
@@ -59,35 +62,35 @@ void ui_display_progress(int x, int y, int width, int height, int percent, UG_CO
     UG_FillFrame(x, y, x + fillWidth, y + height, progressColor);
 }
 
-static void ui_draw_page_list(char **files, int fileCount, int currentItem, int extLen, char * title)
+static void ui_draw_page_list(char **files, int fileCount, int currentItem, int extLen, char *title)
 {
   /* Header */
   UG_FillFrame(0, 0, 320 - 1, 16 - 1, C_BLUE);
   UG_SetForecolor(C_WHITE);
   UG_SetBackcolor(C_BLUE);
-  char * msg = title;
-  UG_PutString((320/2)-(strlen(msg)*9/2), 2, msg);
+  char *msg = title;
+  UG_PutString((320 / 2) - (strlen(msg) * 9 / 2), 2, msg);
   /* End Header */
 
   /* Footer */
-  UG_FillFrame(0, 240 - 16 -1, 320 - 1, 240 - 1, C_BLUE);
+  UG_FillFrame(0, 240 - 16 - 1, 320 - 1, 240 - 1, C_BLUE);
   UG_SetForecolor(C_WHITE);
   UG_SetBackcolor(C_BLUE);
   msg = "  Load    Back    PgUp    PgDown";
-  UG_PutString((320/2)-(strlen(msg)*9/2), 240 - 15, msg);
+  UG_PutString((320 / 2) - (strlen(msg) * 9 / 2), 240 - 15, msg);
 
-  UG_FillCircle(22,240-10,7,C_WHITE);
+  UG_FillCircle(22, 240 - 10, 7, C_WHITE);
   UG_SetForecolor(C_BLACK);
   UG_SetBackcolor(C_WHITE);
   UG_PutString(20, 240 - 15, "A");
 
-  UG_FillCircle(95,240-10,7,C_WHITE);
+  UG_FillCircle(95, 240 - 10, 7, C_WHITE);
   UG_PutString(92, 240 - 15, "B");
 
-  UG_FillCircle(168,240-10,7,C_WHITE);
+  UG_FillCircle(168, 240 - 10, 7, C_WHITE);
   UG_PutString(165, 240 - 15, "<");
 
-  UG_FillCircle(240,240-10,7,C_WHITE);
+  UG_FillCircle(240, 240 - 10, 7, C_WHITE);
   UG_PutString(237, 240 - 15, ">");
   /* End Footer */
 
@@ -96,14 +99,14 @@ static void ui_draw_page_list(char **files, int fileCount, int currentItem, int 
   page *= MAX_ITEM;
   const int itemHeight = innerHeight / MAX_ITEM;
 
-  UG_FillFrame(0, 15, 320 - 1, 193 + 15 , C_BLACK);
+  UG_FillFrame(0, 15, 320 - 1, 193 + 15, C_BLACK);
 
   if (fileCount < 1)
   {
     UG_SetForecolor(C_RED);
     UG_SetBackcolor(C_BLACK);
     msg = "No Files Found";
-    UG_PutString((320/2)-(strlen(msg)*9/2), (240 - 16 - 13)/2, msg);
+    UG_PutString((320 / 2) - (strlen(msg) * 9 / 2), (240 - 16 - 13) / 2, msg);
     ui_flush();
   }
   else
@@ -137,10 +140,10 @@ static void ui_draw_page_list(char **files, int fileCount, int currentItem, int 
       displayStr[line] = (char *)malloc(strlen(filename) + 1);
       strcpy(displayStr[line], filename);
       displayStr[line][strlen(filename) - extLen] = 0;
-      char truncnm[MAX_CHR+1];
-			strncpy(truncnm, displayStr[line], MAX_CHR);
-			truncnm[MAX_CHR]=0;
-      UG_PutString((320/2)-(strlen(truncnm)*9/2), top, truncnm);
+      char truncnm[MAX_CHR + 1];
+      strncpy(truncnm, displayStr[line], MAX_CHR);
+      truncnm[MAX_CHR] = 0;
+      UG_PutString((320 / 2) - (strlen(truncnm) * 9 / 2), top, truncnm);
     }
     ui_flush();
     for (int i = 0; i < MAX_ITEM; ++i)
@@ -150,7 +153,7 @@ static void ui_draw_page_list(char **files, int fileCount, int currentItem, int 
   }
 }
 
-char *ui_file_chooser(const char *path, const char *filter, int currentItem, char * title)
+char *ui_file_chooser(const char *path, const char *filter, int currentItem, char *title)
 {
   const char *result = NULL;
   int extLen = strlen(filter);
@@ -253,6 +256,7 @@ char *ui_file_chooser(const char *path, const char *filter, int currentItem, cha
       }
       else if (!prevKey.values[GAMEPAD_INPUT_B] && key.values[GAMEPAD_INPUT_B])
       {
+        vTaskDelay(10);
         break;
       }
     }

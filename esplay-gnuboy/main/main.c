@@ -188,6 +188,11 @@ void videoTask(void *arg)
                 SaveState();
                 break;
 
+            case MENU_LOAD:
+                display_show_hourglass();
+                LoadState();
+                break;
+
             case MENU_SAVE_EXIT:
                 display_show_hourglass();
                 SaveState();

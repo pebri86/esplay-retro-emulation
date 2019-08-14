@@ -236,7 +236,10 @@ char *ui_file_chooser(const char *path, const char *filter, int currentItem, cha
       else if (!prevKey.values[GAMEPAD_INPUT_A] && key.values[GAMEPAD_INPUT_A])
       {
         if (fileCount < 1)
+        {
+          vTaskDelay(10);
           break;
+        }
 
         size_t fullPathLength = strlen(path) + 1 + strlen(files[selected]) + 1;
 

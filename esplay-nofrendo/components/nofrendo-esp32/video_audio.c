@@ -57,6 +57,7 @@
 
 int showOverlay = 0;
 static void SaveState();
+static void LoadState();
 TimerHandle_t timer;
 
 //Seemingly, this will be called only once. Should call func with a freq of frequency,
@@ -262,6 +263,11 @@ static void videoTask(void *arg)
             case MENU_SAVE_STATE:
                 display_show_hourglass();
                 SaveState();
+                break;
+
+            case MENU_LOAD:
+                display_show_hourglass();
+                load_sram();
                 break;
 
             case MENU_SAVE_EXIT:

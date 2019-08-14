@@ -6,6 +6,7 @@ enum
   MENU_EXIT,
   MENU_SAVE_EXIT,
   MENU_RESET,
+  MENU_LOAD,
   MENU_CONTINUE
 };
 

@@ -44,7 +44,7 @@ TaskHandle_t videoTaskHandle;
 esplay_volume_level Volume;
 battery_state battery;
 
-static void LoadState();
+static void LoadState(const char* filename);
 static void SaveState();
 
 volatile bool videoTaskIsRunning = false;
@@ -69,11 +69,17 @@ void videoTask(void *arg)
             render_copy_palette(palette);
             write_sms_frame(NULL, palette, isGameGear, opt);
             int ret = showMenu();
+            char *cartName = get_rom_name_settings();
             switch (ret)
             {
             case MENU_SAVE_STATE:
                 display_show_hourglass();
                 SaveState();
+                break;
+
+            case MENU_LOAD:
+                display_show_hourglass();
+                LoadState(cartName);
                 break;
 
             case MENU_SAVE_EXIT:

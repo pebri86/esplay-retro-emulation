@@ -5,7 +5,6 @@
 #include "display_gb.h"
 #include "display.h"
 #include "disp_spi.h"
-#include "menu_tile.h"
 
 extern uint16_t *line[];
 

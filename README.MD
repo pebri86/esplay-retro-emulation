@@ -39,6 +39,11 @@ ROM
 ---
 Extract skeleton.zip from docs, and copy to the root of sdcard. Please provide ROM by yourself and place them in the appropriate folder on sdcard.
 
+DONATION
+--------
+The software are free to use but we also accept small donation to make the project lives and continue development
+<a href="https://www.paypal.me/pebri86/1.99USD" target="_blank"><img src="https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/staging/docs/donate.jpeg" alt="Donate" /></a>
+
 All Contributors
 ------------
 Thanks to contribute your work for this project.

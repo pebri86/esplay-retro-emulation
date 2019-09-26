@@ -246,9 +246,9 @@ static void showOptionPage(int selected)
             break;
         case 1:
             if (i == selected)
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 4, C_BLACK, C_YELLOW, C_BLACK);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 100, C_BLACK, C_YELLOW, C_BLACK);
             else
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 4, C_WHITE, C_BLACK, C_WHITE);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 100, C_WHITE, C_BLACK, C_WHITE);
             break;
         case 2:
             if (i == selected)
@@ -308,7 +308,7 @@ static int showOption()
                 break;
             case 1:
                 v = get_volume_settings();
-                v--;
+                v -= 5;
                 if (v < 0)
                     v = 0;
                 set_volume_settings(v);
@@ -347,9 +347,9 @@ static int showOption()
                 break;
             case 1:
                 v = get_volume_settings();
-                v++;
-                if (v > 4)
-                    v = 4;
+                v += 5;
+                if (v > 100)
+                    v = 100;
                 set_volume_settings(v);
                 break;
             case 2:
@@ -395,6 +395,7 @@ void app_main(void)
 {
     nvs_flash_init();
     esplay_system_init();
+
     gamepad_init();
 
     // Display
@@ -462,6 +463,7 @@ void app_main(void)
     int menuItem = 0;
     int prevItem = 0;
     int scroll = 0;
+    int doRefresh = 1;
     input_gamepad_state prevKey;
     gamepad_read(&prevKey);
     while (1)
@@ -474,6 +476,7 @@ void app_main(void)
             if (menuItem > NUM_EMULATOR - 1)
                 menuItem = 0;
             scroll = -SCROLLSPD;
+            doRefresh = 1;
         }
         if (!prevKey.values[GAMEPAD_INPUT_RIGHT] && joystick.values[GAMEPAD_INPUT_RIGHT] && !scroll)
         {
@@ -481,6 +484,7 @@ void app_main(void)
             if (menuItem < 0)
                 menuItem = NUM_EMULATOR - 1;
             scroll = SCROLLSPD;
+            doRefresh = 1;
         }
         if (scroll > 0)
             scroll += SCROLLSPD;
@@ -497,9 +501,10 @@ void app_main(void)
         {
             scrollGfx(scroll + ((scroll > 0) ? -320 : 320), 78, 0, (56 * menuItem) + 12, 320, 56);
         }
-        else
+        else if (doRefresh)
         {
             scrollGfx(0, 78, 0, (56 * menuItem) + 12, 320, 56);
+            doRefresh = 0;
         }
         if (!prevKey.values[GAMEPAD_INPUT_A] && joystick.values[GAMEPAD_INPUT_A])
         {
@@ -526,6 +531,7 @@ void app_main(void)
             ui_clear_screen();
             ui_flush();
             drawHomeScreen();
+            doRefresh = 1;
         }
         if (!prevKey.values[GAMEPAD_INPUT_B] && joystick.values[GAMEPAD_INPUT_B])
             resume();
@@ -538,6 +544,7 @@ void app_main(void)
 
             ui_clear_screen();
             drawHomeScreen();
+            doRefresh = 1;
         }
         prevKey = joystick;
         vTaskDelay(10 / portTICK_PERIOD_MS);

@@ -269,10 +269,10 @@ void set_rom_name_settings(char *value)
     nvs_close(my_handle);
 }
 
-esplay_volume_level get_volume_settings()
+int get_volume_settings()
 {
     // TODO: Move to header
-    int result = ESPLAY_VOLUME_LEVEL1;
+    int result = 25;
 
     // Open
     nvs_handle my_handle;
@@ -293,7 +293,7 @@ esplay_volume_level get_volume_settings()
     return result;
 }
 
-void set_volume_settings(esplay_volume_level value)
+void set_volume_settings(int value)
 {
     // Open
     nvs_handle my_handle;

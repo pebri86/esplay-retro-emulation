@@ -21,6 +21,7 @@
 #include "power.h"
 #include "display_sms.h"
 #include "menu.h"
+#include "gb_frame.h"
 
 #include <dirent.h>
 
@@ -41,7 +42,7 @@ spi_flash_mmap_handle_t hrom;
 QueueHandle_t vidQueue;
 TaskHandle_t videoTaskHandle;
 
-esplay_volume_level Volume;
+int Volume;
 battery_state battery;
 
 static void LoadState(const char* filename);
@@ -67,7 +68,7 @@ void videoTask(void *arg)
         if (param == 2)
         {
             render_copy_palette(palette);
-            write_sms_frame(NULL, palette, isGameGear, opt);
+            //write_frame_rectangleLE(32,0,256,240,NULL);
             int ret = showMenu();
             char *cartName = get_rom_name_settings();
             switch (ret)
@@ -423,6 +424,10 @@ void app_main(void)
     load_rom(FILENAME);
 
     write_sms_frame(NULL, NULL, false, SCALE_STRETCH);
+
+    // draw frame
+    renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
+    renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
 
     vidQueue = xQueueCreate(1, sizeof(uint16_t *));
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024 * 4, NULL, 5, &videoTaskHandle, 1);

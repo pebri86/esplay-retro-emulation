@@ -39,6 +39,7 @@
 #include <power.h>
 #include "display_gb.h"
 #include "menu.h"
+#include "gb_frame.h"
 
 extern int debug_trace;
 
@@ -460,8 +461,8 @@ void app_main(void)
     set_display_brightness(get_backlight_settings());
     audio_volume_set(get_volume_settings());
 
-    //display_show_splash();
-    //vTaskDelay(2000);
+    // battery
+    battery_level_init();
 
     // Gamepad
     gamepad_init();
@@ -516,6 +517,10 @@ void app_main(void)
 
     // Clear display
     write_gb_frame(NULL, SCALE_STRETCH);
+
+    // draw frame
+    renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
+    renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
 
     // Load ROM
     loader_init(NULL);

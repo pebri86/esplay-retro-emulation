@@ -4,6 +4,7 @@
 #include "display.h"
 #include "menu_bg.h"
 #include "menu_gfx.h"
+#include "audio.h"
 #include "gamepad.h"
 #include "settings.h"
 #include "menu.h"
@@ -44,6 +45,7 @@ int showMenu()
   int br = 0;
   int oldBr = 0;
 
+  audio_terminate();
   while (1)
   {
     esp_task_wdt_feed();
@@ -76,26 +78,17 @@ int showMenu()
       if (menuItem == SCN_BRIGHT)
         v = get_backlight_settings();
       if (!lastKey.values[GAMEPAD_INPUT_LEFT] && key.values[GAMEPAD_INPUT_LEFT])
-      {
-        if (menuItem == SCN_VOLUME)
-          v -= 1;
-        if (menuItem == SCN_BRIGHT)
-          v -= 5;
-      }
+        v -= 5;
       if (!lastKey.values[GAMEPAD_INPUT_RIGHT] && key.values[GAMEPAD_INPUT_RIGHT])
-      {
-        if (menuItem == SCN_VOLUME)
-          v += 1;
-        if (menuItem == SCN_BRIGHT)
-          v += 5;
-      }
+        v += 5;
       if (menuItem == SCN_VOLUME)
       {
         if (v < 0)
           v = 0;
-        if (v > 4)
-          v = 4;
+        if (v > 100)
+          v = 100;
         set_volume_settings(v);
+        audio_volume_set(v);
         vol=v;
         doRefresh = 1;
       }
@@ -114,22 +107,34 @@ int showMenu()
     if (!lastKey.values[GAMEPAD_INPUT_A] && key.values[GAMEPAD_INPUT_A])
     {
       if (menuItem == SCN_SAVE)
+      {
+        audio_resume();
         return MENU_SAVE_STATE;
+      }
 
       if (menuItem == SCN_SAVE_EXIT)
         return MENU_SAVE_EXIT;
 
       if (menuItem == SCN_RESET)
-        return MENU_RESET;
+        {
+          audio_resume();
+          return MENU_RESET;
+        }
 
       if (menuItem == SCN_EXIT)
         return MENU_EXIT;
 
       if (menuItem == SCN_CONTINUE)
-        return MENU_CONTINUE;
+        {
+          audio_resume();
+          return MENU_CONTINUE;
+        }
 
       if (menuItem == SCN_LOAD)
-        return MENU_LOAD;
+        {
+          audio_resume();
+          return MENU_LOAD;
+        }
     }
 
     if (menuItem == SCN_VOLUME && vol != oldVol)
@@ -159,7 +164,7 @@ int showMenu()
       int v = get_volume_settings();
       if (top==0)
         renderMenu(136, 15, 0, 8, 65, 8);
-      renderMenu(136, 15, 0, 0, (v * 65) / 4, 8);
+      renderMenu(136, 15, 0, 0, (v * 65) / 100, 8);
 
       v = get_backlight_settings();
       if (top==30)

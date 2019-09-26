@@ -81,8 +81,8 @@ int app_main(void)
 
     set_display_brightness(get_backlight_settings());
 
-    //display_show_splash();
-    //vTaskDelay(1000);
+    // battery
+    battery_level_init();
 
     switch (esp_sleep_get_wakeup_cause())
     {

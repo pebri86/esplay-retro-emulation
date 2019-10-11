@@ -11,7 +11,7 @@
 
 void drawBackground(int offset)
 {
-  renderGfx((320 - 160) / 2, offset, 150, 240 - offset, menu_bg.pixel_data, 0, offset, menu_bg.width);
+  renderGfx((320 - 150) / 2, offset, 150, 240 - offset - 1, menu_bg.pixel_data, 0, offset, menu_bg.width);
 }
 
 void renderMenu(int dx, int dy, int sx, int sy, int sw, int sh)
@@ -152,24 +152,24 @@ int showMenu()
     t = (t & 1);
     if (t != oldArrowsTick)
     {
-      renderMenu(85, 29 * menuItem + 13, 65, t ? 0 : 15, 15, 15);
+      renderMenu(90, 29 * menuItem + 13, 65, t ? 0 : 15, 15, 15);
       oldArrowsTick = t;
     }
 
     if (refreshArrow)
-      renderGfx((320 - 160) / 2, 0, 17, 240, menu_bg.pixel_data, 0, 0, menu_bg.width);
+      renderGfx((320 - 150) / 2, 0, 17, 240, menu_bg.pixel_data, 0, 0, menu_bg.width);
 
     if (doRefresh)
     {
       int v = get_volume_settings();
       if (top==0)
-        renderMenu(136, 15, 0, 8, 65, 8);
-      renderMenu(136, 15, 0, 0, (v * 65) / 100, 8);
+        renderMenu(141, 15, 0, 8, 65, 8);
+      renderMenu(141, 15, 0, 0, (v * 65) / 100, 8);
 
       v = get_backlight_settings();
       if (top==30)
-        renderMenu(136, 44, 0, 8, 65, 8);
-      renderMenu(136, 44, 0, 0, (v * 65) / 100, 8);
+        renderMenu(141, 45, 0, 8, 65, 8);
+      renderMenu(141, 45, 0, 0, (v * 65) / 100, 8);
     }
 
     prevItem = menuItem;

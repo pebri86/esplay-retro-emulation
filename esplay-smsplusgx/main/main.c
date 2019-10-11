@@ -426,8 +426,8 @@ void app_main(void)
     write_sms_frame(NULL, NULL, false, SCALE_STRETCH);
 
     // draw frame
-    renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
-    renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
+    //renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
+    //renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
 
     vidQueue = xQueueCreate(1, sizeof(uint16_t *));
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024 * 4, NULL, 5, &videoTaskHandle, 1);

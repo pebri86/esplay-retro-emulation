@@ -139,7 +139,7 @@ static void drawHomeScreen()
     UG_PutString(160, 50 + (56 * 2) + 13 + 18, "MENU");
     ui_flush();
     battery_level_read(&bat_state);
-    drawVolume(get_volume_settings() * 25);
+    drawVolume(get_volume_settings());
     drawBattery(bat_state.percentage);
     if (wifi_en)
         renderGraphics(320 - (50), 0, 24 * 6, 0, 24, 12);

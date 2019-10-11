@@ -513,8 +513,8 @@ int osd_init()
     write_nes_frame(NULL, SCALE_STRETCH);
 
     // draw frame
-    renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
-    renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
+    //renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
+    //renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
 
     vidQueue = xQueueCreate(1, sizeof(bitmap_t *));
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024*3, NULL, 5, NULL, 1);

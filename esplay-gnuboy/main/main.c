@@ -519,8 +519,8 @@ void app_main(void)
     write_gb_frame(NULL, SCALE_STRETCH);
 
     // draw frame
-    renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
-    renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
+    //renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
+    //renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
 
     // Load ROM
     loader_init(NULL);

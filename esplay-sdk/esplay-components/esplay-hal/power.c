@@ -46,7 +46,7 @@ void system_sleep()
         printf("%s: esp_sleep_enable_ext0_wakeup failed.\n", __func__);
         abort();
     }
-/*
+    /*
     err = rtc_gpio_pullup_en(MENU);
     if (err != ESP_OK)
     {
@@ -97,9 +97,76 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
     }
 }
 
+void system_led_set(int state)
+{
+    gpio_set_level(GPIO_NUM_13, state);
+}
+
+charging_state getChargeStatus()
+{
+    if(!gpio_get_level(USB_PLUG_PIN))
+        return NO_CHRG;
+    else
+    {
+        if(!gpio_get_level(CHRG_STATE_PIN))
+            return CHARGING;
+        else
+            return FULL_CHARGED;
+    }
+}
+
+static void battery_monitor_task()
+{
+    bool led_state = false;
+    charging_state chrg;
+    while (true)
+    {
+        if (battery_monitor_enabled)
+        {
+            battery_state battery;
+            battery_level_read(&battery);
+
+            if (battery.percentage < 2)
+            {
+                led_state = !led_state;
+                system_led_set(led_state);
+            }
+            else if (led_state)
+            {
+                led_state = 0;
+                system_led_set(led_state);
+            }
+            else
+            {
+                chrg = getChargeStatus();
+                switch (chrg)
+                {
+                case NO_CHRG:
+                    system_led_set(0);
+                    break;
+                case CHARGING:
+                    system_led_set(1);
+                    break;
+                case FULL_CHARGED:
+                    system_led_set(0);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+}
+
 #define DEFAULT_VREF 1100
 void battery_level_init()
 {
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[GPIO_NUM_13], PIN_FUNC_GPIO);
+    gpio_set_direction(GPIO_NUM_13, GPIO_MODE_OUTPUT);
+    gpio_set_direction(USB_PLUG_PIN, GPIO_MODE_INPUT);
+    gpio_set_direction(CHRG_STATE_PIN, GPIO_MODE_INPUT);
     adc1_config_width(ADC_WIDTH_12Bit);
     adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_11db);
 
@@ -112,7 +179,8 @@ void battery_level_init()
     print_char_val_type(val_type);
 
     input_battery_initialized = true;
-    //xTaskCreatePinnedToCore(&odroid_battery_monitor_task, "battery_monitor", 1024, NULL, 5, NULL, 1);
+    battery_monitor_enabled_set(true);
+    xTaskCreatePinnedToCore(&battery_monitor_task, "battery_monitor", 1024, NULL, 5, NULL, 1);
 }
 
 void battery_level_read(battery_state *out_state)
@@ -155,8 +223,10 @@ void battery_level_read(battery_state *out_state)
 
     out_state->millivolts = (int)(Vs * 1000);
     out_state->percentage = (int)((Vs - EmptyVoltage) / (FullVoltage - EmptyVoltage) * 100.0f);
-    if (out_state->percentage > 100) out_state->percentage = 100;
-    if (out_state->percentage < 0) out_state->percentage = 0;
+    if (out_state->percentage > 100)
+        out_state->percentage = 100;
+    if (out_state->percentage < 0)
+        out_state->percentage = 0;
 }
 
 void battery_level_force_voltage(float volts)

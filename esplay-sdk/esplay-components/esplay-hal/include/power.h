@@ -6,9 +6,21 @@ typedef struct
 	int percentage;
 } battery_state;
 
+typedef enum
+{
+  NO_CHRG = 0,
+	CHARGING,
+	FULL_CHARGED
+} charging_state;
+
+#define USB_PLUG_PIN GPIO_NUM_32
+#define CHRG_STATE_PIN GPIO_NUM_33
+
 void system_sleep();
 void esplay_system_init();
 void battery_level_init();
 void battery_level_read(battery_state *out_state);
 void battery_level_force_voltage(float volts);
 void battery_monitor_enabled_set(int value);
+charging_state getChargeStatus();
+void system_led_set(int state);

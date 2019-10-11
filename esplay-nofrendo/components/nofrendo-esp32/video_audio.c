@@ -48,6 +48,7 @@
 #include "power.h"
 #include "display_nes.h"
 #include "menu.h"
+#include "gb_frame.h"
 
 #define DEFAULT_SAMPLERATE 32000
 #define DEFAULT_FRAGSIZE 512
@@ -256,7 +257,7 @@ static void videoTask(void *arg)
 
         if (bmp == 2)
         {
-            write_nes_frame(NULL, opt);;
+            //write_frame_rectangleLE(32,0,256,240,NULL);
             int ret = showMenu();
             switch (ret)
             {
@@ -510,6 +511,11 @@ int osd_init()
         return -1;
 
     write_nes_frame(NULL, SCALE_STRETCH);
+
+    // draw frame
+    //renderGfx(0,0,32,240,gb_frame.pixel_data,0,0,gb_frame.width);
+    //renderGfx(32+256,0,32,240,gb_frame.pixel_data,32,0,gb_frame.width);
+
     vidQueue = xQueueCreate(1, sizeof(bitmap_t *));
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024*3, NULL, 5, NULL, 1);
     osd_initinput();

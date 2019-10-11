@@ -25,17 +25,6 @@ extern "C"
  **********************/
     typedef enum
     {
-        ESPLAY_VOLUME_LEVEL0 = 0,
-        ESPLAY_VOLUME_LEVEL1 = 1,
-        ESPLAY_VOLUME_LEVEL2 = 2,
-        ESPLAY_VOLUME_LEVEL3 = 3,
-        ESPLAY_VOLUME_LEVEL4 = 4,
-
-        _ODROID_VOLUME_FILLER = 0xffffffff
-    } esplay_volume_level;
-
-    typedef enum
-    {
         SCALE_NONE = 0,
         SCALE_FIT = 1,
         SCALE_STRETCH = 2
@@ -50,8 +39,8 @@ extern "C"
     char *system_util_GetFileName(const char *path);
     char *system_util_GetFileExtenstion(const char *path);
     char *system_util_GetFileNameWithoutExtension(const char *path);
-    esplay_volume_level get_volume_settings();
-    void set_volume_settings(esplay_volume_level value);
+    int get_volume_settings();
+    void set_volume_settings(int value);
     char *get_rom_name_settings();
     void set_rom_name_settings(char *value);
     esplay_scale_option get_scale_option_settings();

@@ -55,7 +55,11 @@ static uint8_t i2c_keypad_read()
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
+ #if 0
     i2c_master_write_byte(cmd, 0x38 << 1 | READ_BIT, ACK_CHECK_EN);
+ #else
+    i2c_master_write_byte(cmd, 0x20 << 1 | READ_BIT, ACK_CHECK_EN);
+ #endif
     i2c_master_read_byte(cmd, data + len - 1, NACK_VAL);
     i2c_master_stop(cmd);
     esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 1000 / portTICK_RATE_MS);

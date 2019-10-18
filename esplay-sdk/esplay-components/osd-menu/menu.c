@@ -85,8 +85,8 @@ int showMenu()
       {
         if (v < 0)
           v = 0;
-        if (v > 100)
-          v = 100;
+        if (v > 255)
+          v = 255;
         set_volume_settings(v);
         audio_volume_set(v);
         vol=v;
@@ -164,7 +164,7 @@ int showMenu()
       int v = get_volume_settings();
       if (top==0)
         renderMenu(141, 15, 0, 8, 65, 8);
-      renderMenu(141, 15, 0, 0, (v * 65) / 100, 8);
+      renderMenu(141, 15, 0, 0, (v * 65) / 255, 8);
 
       v = get_backlight_settings();
       if (top==30)

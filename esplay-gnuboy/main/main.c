@@ -214,6 +214,7 @@ void videoTask(void *arg)
             default:
                 break;
             }
+            write_gb_frame(NULL, scale_opt);
             showOverlay = 0;
             vTaskDelay(10);
         }

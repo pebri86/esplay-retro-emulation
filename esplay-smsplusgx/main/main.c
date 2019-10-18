@@ -104,6 +104,7 @@ void videoTask(void *arg)
                 break;
             }
 
+            write_sms_frame(NULL, palette, isGameGear, opt);
             showOverlay = 0;
             vTaskDelay(10);
         }

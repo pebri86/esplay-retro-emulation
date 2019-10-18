@@ -2,7 +2,7 @@
 #define AUDIO_H
 
 #define I2S_NUM I2S_NUM_0
-#define VOLUME_LEVEL_COUNT (100)
+#define VOLUME_LEVEL_COUNT (255)
 
 
 void audio_init(int sample_rate);

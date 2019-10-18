@@ -64,7 +64,7 @@ void system_application_set(int slot)
 int32_t get_backlight_settings()
 {
     // TODO: Move to header
-    int result = 30;
+    int result = 100;
 
     // Open
     nvs_handle my_handle;

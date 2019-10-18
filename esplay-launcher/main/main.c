@@ -76,32 +76,32 @@ static void scrollGfx(int dx, int dy, int sx, int sy, int sw, int sh)
 
 static void drawBattery(int batPercent)
 {
-    if (batPercent > 75 && batPercent <= 100)
-        renderGraphics(320 - 25, 0, 24 * 5, 0, 24, 12);
-    else if (batPercent > 50 && batPercent <= 75)
-        renderGraphics(320 - 25, 0, 24 * 4, 0, 24, 12);
-    else if (batPercent > 25 && batPercent <= 50)
-        renderGraphics(320 - 25, 0, 24 * 3, 0, 24, 12);
-    else if (batPercent > 10 && batPercent <= 25)
-        renderGraphics(320 - 25, 0, 24 * 2, 0, 24, 12);
-    else if (batPercent > 0 && batPercent <= 10)
-        renderGraphics(320 - 25, 0, 24 * 1, 0, 24, 12);
-    else if (batPercent == 0)
-        renderGraphics(320 - 25, 0, 0, 0, 24, 12);
+    charging_state st = getChargeStatus();
+    if (st == CHARGING)
+        renderGraphics(320 - 25, 0, 24 * 5, 0, 24, 24);
+    else if (st == FULL_CHARGED)
+        renderGraphics(320 - 25, 0, 24 * 6, 0, 24, 24);
+    else
+    {
+        if (batPercent > 75 && batPercent <= 100)
+            renderGraphics(320 - 25, 0, 24 * 4, 0, 24, 24);
+        else if (batPercent > 50 && batPercent <= 75)
+            renderGraphics(320 - 25, 0, 24 * 3, 0, 24, 24);
+        else if (batPercent > 25 && batPercent <= 50)
+            renderGraphics(320 - 25, 0, 24 * 2, 0, 24, 24);
+        else if (batPercent > 0 && batPercent <= 25)
+            renderGraphics(320 - 25, 0, 24 * 1, 0, 24, 24);
+        else if (batPercent == 0)
+            renderGraphics(320 - 25, 0, 0, 0, 24, 24);
+    }
 }
 
 static void drawVolume(int volume)
 {
-    if (volume > 75 && volume <= 100)
-        renderGraphics(0, 0, 24 * 12, 0, 24, 12);
-    if (volume > 50 && volume <= 75)
-        renderGraphics(0, 0, 24 * 11, 0, 24, 12);
-    if (volume > 25 && volume <= 50)
-        renderGraphics(0, 0, 24 * 10, 0, 24, 12);
-    if (volume > 0 && volume <= 25)
-        renderGraphics(0, 0, 24 * 9, 0, 24, 12);
-    else if (volume == 0)
-        renderGraphics(0, 0, 24 * 8, 0, 24, 12);
+    if (volume == 0)
+        renderGraphics(0, 0, 24 * 9, 0, 24, 24);
+    else
+        renderGraphics(0, 0, 24 * 8, 0, 24, 24);
 }
 
 static void drawHomeScreen()
@@ -109,12 +109,12 @@ static void drawHomeScreen()
     UG_SetForecolor(C_YELLOW);
     UG_SetBackcolor(C_BLACK);
     char *title = "ESPlay Micro";
-    UG_PutString((320 / 2) - (strlen(title) * 9 / 2), 0, title);
+    UG_PutString((320 / 2) - (strlen(title) * 9 / 2), 12, title);
 
     if (wifi_en)
     {
         title = "Wifi ON, go to http://192.168.4.1/";
-        UG_PutString((320 / 2) - (strlen(title) * 9 / 2), 20, title);
+        UG_PutString((320 / 2) - (strlen(title) * 9 / 2), 32, title);
     }
 
     UG_SetForecolor(C_WHITE);
@@ -137,12 +137,27 @@ static void drawHomeScreen()
 
     UG_FillRoundFrame(155, 50 + (56 * 2) + 13 + 18 - 1, 168 + (3 * 9) + 3, 50 + (56 * 2) + 13 + 18 + 11, 7, C_WHITE);
     UG_PutString(160, 50 + (56 * 2) + 13 + 18, "MENU");
+
+    uint8_t volume = get_volume_settings();
+    char volStr[3];
+    sprintf(volStr, "%i", volume);
+    if (volume == 0)
+    {
+        UG_SetForecolor(C_RED);
+        UG_SetBackcolor(C_BLACK);
+    }
+    else
+    {
+        UG_SetForecolor(C_WHITE);
+        UG_SetBackcolor(C_BLACK);
+    }
+    UG_PutString(25, 12, volStr);
     ui_flush();
     battery_level_read(&bat_state);
-    drawVolume(get_volume_settings());
+    drawVolume(volume);
     drawBattery(bat_state.percentage);
     if (wifi_en)
-        renderGraphics(320 - (50), 0, 24 * 6, 0, 24, 12);
+        renderGraphics(320 - (50), 0, 24 * 7, 0, 24, 24);
 }
 
 // Return to last emulator if 'B' pressed....
@@ -246,9 +261,9 @@ static void showOptionPage(int selected)
             break;
         case 1:
             if (i == selected)
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 100, C_BLACK, C_YELLOW, C_BLACK);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_BLACK, C_YELLOW, C_BLACK);
             else
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 100, C_WHITE, C_BLACK, C_WHITE);
+                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_WHITE, C_BLACK, C_WHITE);
             break;
         case 2:
             if (i == selected)
@@ -348,8 +363,8 @@ static int showOption()
             case 1:
                 v = get_volume_settings();
                 v += 5;
-                if (v > 100)
-                    v = 100;
+                if (v > 255)
+                    v = 255;
                 set_volume_settings(v);
                 break;
             case 2:
@@ -464,6 +479,7 @@ void app_main(void)
     int prevItem = 0;
     int scroll = 0;
     int doRefresh = 1;
+    charging_state chrg_st = getChargeStatus();
     input_gamepad_state prevKey;
     gamepad_read(&prevKey);
     while (1)
@@ -496,14 +512,14 @@ void app_main(void)
             scroll = 0;
         }
         if (prevItem != menuItem)
-            scrollGfx(scroll, 78, 0, (56 * prevItem) + 12, 320, 56);
+            scrollGfx(scroll, 78, 0, (56 * prevItem) + 24, 320, 56);
         if (scroll)
         {
-            scrollGfx(scroll + ((scroll > 0) ? -320 : 320), 78, 0, (56 * menuItem) + 12, 320, 56);
+            scrollGfx(scroll + ((scroll > 0) ? -320 : 320), 78, 0, (56 * menuItem) + 24, 320, 56);
         }
         else if (doRefresh)
         {
-            scrollGfx(0, 78, 0, (56 * menuItem) + 12, 320, 56);
+            scrollGfx(0, 78, 0, (56 * menuItem) + 24, 320, 56);
             doRefresh = 0;
         }
         if (!prevKey.values[GAMEPAD_INPUT_A] && joystick.values[GAMEPAD_INPUT_A])
@@ -546,6 +562,15 @@ void app_main(void)
             drawHomeScreen();
             doRefresh = 1;
         }
+
+        if (getChargeStatus() != chrg_st)
+        {
+            battery_level_read(&bat_state);
+            drawBattery(bat_state.percentage);
+            doRefresh = 1;
+            chrg_st = getChargeStatus();
+        }
+
         prevKey = joystick;
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }

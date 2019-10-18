@@ -130,7 +130,7 @@ void write_sms_frame(const uint8_t *data, uint16_t color[], bool isGameGear, esp
                 outputHeight = LCD_HEIGHT;
                 outputWidth = LCD_WIDTH;
                 x_ratio = (int)((SMS_FRAME_WIDTH<<16)/outputWidth) +1;
-                y_ratio = (int)((SMS_FRAME_HEIGHT<<16)/outputHeight) +1; 
+                y_ratio = (int)((SMS_FRAME_HEIGHT<<16)/outputHeight) +1;
 
                 for (y = 0; y < outputHeight; y += LINE_COUNT)
                 {

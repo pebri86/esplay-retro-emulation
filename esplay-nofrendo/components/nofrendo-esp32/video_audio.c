@@ -291,6 +291,7 @@ static void videoTask(void *arg)
             default:
                 break;
             }
+            write_nes_frame(NULL, opt);
             showOverlay = 0;
             vTaskDelay(10);
         }

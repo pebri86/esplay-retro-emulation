@@ -231,7 +231,7 @@ static void showOptionPage(int selected)
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 30, "* restart required");
     char tempString[512];
-    sprintf(tempstring,"BuildVer: %s-%s", COMPILEDATE, GITREV);
+    sprintf(tempString,"BuildVer: %s-%s", COMPILEDATE, GITREV);
     UG_SetForecolor(C_WHITE);
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 44, tempString);

@@ -229,7 +229,13 @@ static void showOptionPage(int selected)
 
     UG_SetForecolor(C_RED);
     UG_SetBackcolor(C_BLACK);
-    UG_PutString(0, 240 - 16 - 14, "* restart required");
+    UG_PutString(0, 240 - 30, "* restart required");
+    char tempString[512];
+    sprintf(tempString,"BuildVer: %s-%s", COMPILEDATE, GITREV);
+    UG_SetForecolor(C_WHITE);
+    UG_SetBackcolor(C_BLACK);
+    UG_PutString(0, 240 - 44, tempString);
+    UG_PutString(0, 240 - 58, "Retro Launcher");
     uint8_t wifi = get_wifi_settings();
     uint8_t volume = get_volume_settings();
     uint8_t bright = get_backlight_settings();

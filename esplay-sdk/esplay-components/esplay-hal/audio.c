@@ -5,6 +5,7 @@
 #include "driver/i2s.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
+#include "settings.h"
 
 static float Volume = 0.5f;
 static int volumeLevel = 25;
@@ -26,9 +27,7 @@ void audio_volume_set(int value)
     volumeLevel = value;
     Volume = (float)volumeLevel * 0.001f;
 
-    if(volumeLevel != 0)
-        audio_amp_enable();
-    else
+    if (volumeLevel == 0)
         audio_amp_disable();
 }
 
@@ -60,6 +59,9 @@ void audio_init(int sample_rate)
     };
     i2s_set_pin(I2S_NUM, &pin_config);
     sampleRate = sample_rate;
+    volumeLevel = get_volume_settings();
+    if(volumeLevel != 0)
+        audio_amp_enable();
 }
 
 void audio_submit(short *stereoAudioBuffer, int frameCount)

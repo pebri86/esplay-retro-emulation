@@ -166,7 +166,9 @@ void battery_level_init()
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[GPIO_NUM_13], PIN_FUNC_GPIO);
     gpio_set_direction(GPIO_NUM_13, GPIO_MODE_OUTPUT);
     gpio_set_direction(USB_PLUG_PIN, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(USB_PLUG_PIN, GPIO_PULLUP_ONLY);
     gpio_set_direction(CHRG_STATE_PIN, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(CHRG_STATE_PIN, GPIO_PULLUP_ONLY);
     adc1_config_width(ADC_WIDTH_12Bit);
     adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_11db);
 

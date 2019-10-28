@@ -5,11 +5,6 @@
 #define HEIGHT 240
 
 /*
-  Emulator Count + 1 for Theme
-*/
-#define COUNT 7
-
-/*
   System Ribbon Display
 */
 #define GAP 48
@@ -25,3 +20,13 @@
 */
 #define WHITE 65535
 #define BLACK 0
+
+/*
+  Emulator Count + 1 for Theme
+*/
+#define COUNT 7
+
+/*
+
+*/
+#define MAX_FILES 1024

@@ -16,6 +16,18 @@ void draw_mask(int x, int y, int w, int h);
 void draw_background();
 
 /*
+ Options
+*/
+void draw_settings();
+
+/*
+ Volume
+*/
+void draw_volume();
+int32_t get_volume();
+void set_volume();
+
+/*
  Theme
 */
 void draw_themes();
@@ -41,17 +53,19 @@ void get_restore_states();
 */
 void draw_systems();
 void draw_media(int x, int y, bool current);
+void draw_folder(int x, int y, bool current);
 void draw_battery();
+void draw_speaker();
 void draw_numbers();
 void draw_launcher();
-void draw_options();
+void draw_launcher_options();
 
 /*
   Files
 */
 void get_files();
 void sort_files(char** files);
-void draw_files(char** files);
+void draw_files();
 void has_save_file(char *name);
 
 /*

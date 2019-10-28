@@ -169,13 +169,7 @@ esp_err_t sdcard_open(const char *base_path)
     {
         sdmmc_host_t host = SDMMC_HOST_DEFAULT();
         host.flags = SDMMC_HOST_FLAG_1BIT;
-#ifdef CONFIG_SDIO_DAT2_DISABLED
-        /* For slave chips with 3.3V flash, DAT2 pullup conflicts with the pulldown
-           required by strapping pin (MTDI). We can either burn the EFUSE for the
-           strapping or just disable the DAT2 and work in 1-bit mode.
-        */
-        host.flags |= SDIO_SLAVE_FLAG_DAT2_DISABLED;
-#endif
+        host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
 
         sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
         slot_config.width = 1;

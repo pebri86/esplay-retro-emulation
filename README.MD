@@ -1,4 +1,7 @@
-# ESPlay Retro Emulation  ![retro-emulation](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/retro_emulation.png)
+# ESPlay Retro Emulation  
+![Github All Releases](https://img.shields.io/github/downloads/pebri86/esplay-retro-emulation/total.svg) ![Github Last Commit](https://img.shields.io/github/last-commit/pebri86/esplay-retro-emulation)
+
+![retro-emulation](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/retro_emulation.png)
 
 <a href="http://www.youtube.com/watch?feature=player_embedded&v=GPbRSVksWhE&t=4s" target="_blank"><img src="https://i.ytimg.com/vi/GPbRSVksWhE/hqdefault.jpg" alt="Youtube Video" width="240" height="180" border="10" /></a>
 

@@ -13,9 +13,6 @@ typedef enum
 	FULL_CHARGED
 } charging_state;
 
-#define USB_PLUG_PIN GPIO_NUM_32
-#define CHRG_STATE_PIN GPIO_NUM_33
-
 void system_sleep();
 void esplay_system_init();
 void battery_level_init();

@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
 #include "settings.h"
+#include "pin_definitions.h"
 
 static float Volume = 0.5f;
 static int volumeLevel = 25;
@@ -33,7 +34,7 @@ void audio_volume_set(int value)
 
 void audio_init(int sample_rate)
 {
-    gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
+    gpio_set_direction(AMP_SHDN, GPIO_MODE_OUTPUT);
     printf("%s: sample_rate=%d\n", __func__, sample_rate);
 
     // NOTE: buffer needs to be adjusted per AUDIO_SAMPLE_RATE
@@ -52,9 +53,9 @@ void audio_init(int sample_rate)
 
     i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL);
     i2s_pin_config_t pin_config = {
-        .bck_io_num = 26,
-        .ws_io_num = 25,
-        .data_out_num = 19,
+        .bck_io_num = I2S_BCK,
+        .ws_io_num = I2S_WS,
+        .data_out_num = I2S_DOUT,
         .data_in_num = -1 //Not used
     };
     i2s_set_pin(I2S_NUM, &pin_config);
@@ -109,10 +110,10 @@ void audio_resume()
 
 void audio_amp_enable()
 {
-    gpio_set_level(GPIO_NUM_4, 1);
+    gpio_set_level(AMP_SHDN, 1);
 }
 
 void audio_amp_disable()
 {
-    gpio_set_level(GPIO_NUM_4, 0);
+    gpio_set_level(AMP_SHDN, 0);
 }

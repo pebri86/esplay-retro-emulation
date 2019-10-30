@@ -10,10 +10,7 @@
 #include "gamepad.h"
 #include <driver/adc.h>
 #include "esp_adc_cal.h"
-#if CONFIG_USE_LVGL
-#include "lvgl/lv_hal/lv_hal_indev.h"
-#include "lvgl/lv_core/lv_group.h"
-#endif
+#include "pin_definitions.h"
 
 #define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
@@ -30,8 +27,6 @@ static input_gamepad_state previous_gamepad_state;
 static uint8_t debounce[GAMEPAD_INPUT_MAX];
 static volatile bool input_gamepad_initialized = false;
 static SemaphoreHandle_t xSemaphore;
-static gpio_num_t i2c_gpio_sda = 21;
-static gpio_num_t i2c_gpio_scl = 22;
 static uint32_t i2c_frequency = 100000;
 static i2c_port_t i2c_port = I2C_NUM_0;
 
@@ -39,9 +34,9 @@ static esp_err_t i2c_master_driver_initialize()
 {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
-        .sda_io_num = i2c_gpio_sda,
+        .sda_io_num = I2C_SDA,
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = i2c_gpio_scl,
+        .scl_io_num = I2C_SCL,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = i2c_frequency
     };
@@ -55,11 +50,7 @@ static uint8_t i2c_keypad_read()
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
- #if 0
-    i2c_master_write_byte(cmd, 0x38 << 1 | READ_BIT, ACK_CHECK_EN);
- #else
-    i2c_master_write_byte(cmd, 0x20 << 1 | READ_BIT, ACK_CHECK_EN);
- #endif
+    i2c_master_write_byte(cmd, I2C_ADDR << 1 | READ_BIT, ACK_CHECK_EN);
     i2c_master_read_byte(cmd, data + len - 1, NACK_VAL);
     i2c_master_stop(cmd);
     esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 1000 / portTICK_RATE_MS);
@@ -250,14 +241,13 @@ void gamepad_init()
 
     btn_config.pin_bit_mask = (uint64_t)      //Bitmask
                               ((uint64_t)1 << L_BTN) |
-                              ((uint64_t)1 << R_BTN);
+                              ((uint64_t)1 << R_BTN) |
+                              ((uint64_t)1 << MENU);
     #endif
 
     btn_config.pull_up_en = GPIO_PULLUP_ENABLE;      //Disable pullup
     btn_config.pull_down_en = GPIO_PULLDOWN_DISABLE; //Enable pulldown
     gpio_config(&btn_config);
-
-    gpio_set_direction(MENU, GPIO_MODE_INPUT);
 
     input_gamepad_initialized = true;
 
@@ -277,66 +267,3 @@ void input_gamepad_terminate()
     i2c_driver_delete(i2c_port);
     input_task_is_running = false;
 }
-
-#if CONFIG_USE_LVGL
-bool lv_keypad_read(lv_indev_data_t *data)
-{
-    if (!input_gamepad_initialized)
-        abort();
-
-    if (gamepad_state.values[GAMEPAD_INPUT_UP] == 1)
-    {
-        //printf("UP\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_UP;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_DOWN] == 1)
-    {
-        //printf("DOWN\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_DOWN;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_LEFT] == 1)
-    {
-        //printf("LEFT\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_LEFT;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_RIGHT] == 1)
-    {
-        //printf("RIGHT\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_RIGHT;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_B] == 1)
-    {
-        //printf("ESC\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_ESC;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_A] == 1)
-    {
-        //printf("ENTER\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_ENTER;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_SELECT] == 1)
-    {
-        //printf("SELECT\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_NEXT;
-    }
-    else if (gamepad_state.values[GAMEPAD_INPUT_START] == 1)
-    {
-        //printf("START\n");
-        data->state = LV_INDEV_STATE_PR;
-        data->key = LV_GROUP_KEY_PREV;
-    }
-    else
-    {
-        data->state = LV_INDEV_STATE_REL;
-    }
-
-    return false;
-}
-#endif

@@ -17,10 +17,7 @@
 #include "lcd_struct.h"
 #include "driver/ledc.h"
 #include "driver/rtc_io.h"
-
-#if CONFIG_USE_LVGL
-#include "../lvgl/lvgl.h"
-#endif
+#include "pin_definitions.h"
 
 /*********************
  *      DEFINES
@@ -92,7 +89,7 @@ void ili9342_init(void)
 	    //Set Gamma
 	    {0xE0, {0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00}, 15},
 	    {0XE1, {0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F}, 15},
-	    
+
 	    // ILI9342 Specific
 	    {0x36, {0x40|0x80|0x08}, 1}, // <-- ROTATE
 	    {0x21, {0}, 0x80}, // <-- INVERT COLORS
@@ -103,7 +100,7 @@ void ili9342_init(void)
 	};
 
 	//Initialize non-SPI GPIOs
-	gpio_set_direction(ILI9342_BCKL, GPIO_MODE_OUTPUT);
+	gpio_set_direction(DISP_BCKL, GPIO_MODE_OUTPUT);
 
 	//Reset the display
 	ili9342_send_cmd(TFT_CMD_SWRESET);
@@ -142,105 +139,6 @@ void ili9342_backlight_percentage_set(int value)
 	ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
 }
 
-#if CONFIG_USE_LVGL
-void ili9342_fill(int32_t x1, int32_t y1, int32_t x2, int32_t y2, lv_color_t color)
-{
-	uint8_t data[4];
-
-	//Column addresses
-	ili9342_send_cmd(0x2A);
-	data[0] = (x1 >> 8) & 0xFF;
-	data[1] = x1 & 0xFF;
-	data[2] = (x2 >> 8) & 0xFF;
-	data[3] = x2 & 0xFF;
-	ili9342_send_data(data, 4);
-
-	//Page addresses
-	ili9342_send_cmd(0x2B);
-	data[0] = (y1 >> 8) & 0xFF;
-	data[1] = y1 & 0xFF;
-	data[2] = (y2 >> 8) & 0xFF;
-	data[3] = y2 & 0xFF;
-	ili9342_send_data(data, 4);
-
-	//Memory write
-	ili9342_send_cmd(0x2C);
-
-	uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1);
-	uint16_t color_swap = ((color.full >> 8) & 0xFF) | ((color.full & 0xFF) << 8); //It's a 8 bit SPI bytes need to be swapped
-	uint16_t buf[ILI9342_HOR_RES];
-
-	uint32_t i;
-	if (size < ILI9342_HOR_RES)
-	{
-		for (i = 0; i < size; i++)
-			buf[i] = color_swap;
-	}
-	else
-	{
-		for (i = 0; i < ILI9342_HOR_RES; i++)
-			buf[i] = color_swap;
-	}
-
-	while (size > ILI9342_HOR_RES)
-	{
-		ili9342_send_data(buf, ILI9342_HOR_RES * 2);
-		size -= ILI9342_HOR_RES;
-	}
-
-	ili9342_send_data(buf, size * 2); //Send the remaining data
-}
-
-void ili9342_flush(int32_t x1, int32_t y1, int32_t x2, int32_t y2, const lv_color_t *color_map)
-{
-	uint8_t data[4];
-
-	//Column addresses
-	ili9342_send_cmd(0x2A);
-	data[0] = (x1 >> 8) & 0xFF;
-	data[1] = x1 & 0xFF;
-	data[2] = (x2 >> 8) & 0xFF;
-	data[3] = x2 & 0xFF;
-	ili9342_send_data(data, 4);
-
-	//Page addresses
-	ili9342_send_cmd(0x2B);
-	data[0] = (y1 >> 8) & 0xFF;
-	data[1] = y1 & 0xFF;
-	data[2] = (y2 >> 8) & 0xFF;
-	data[3] = y2 & 0xFF;
-	ili9342_send_data(data, 4);
-
-	//Memory write
-	ili9342_send_cmd(0x2C);
-
-	uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1);
-
-	//Byte swapping is required
-	uint32_t i;
-	uint8_t *color_u8 = (uint8_t *)color_map;
-	uint8_t color_tmp;
-	for (i = 0; i < size * 2; i += 2)
-	{
-		color_tmp = color_u8[i + 1];
-		color_u8[i + 1] = color_u8[i];
-		color_u8[i] = color_tmp;
-	}
-
-	while (size > ILI9342_HOR_RES)
-	{
-
-		ili9342_send_data((void *)color_map, ILI9342_HOR_RES * 2);
-		size -= ILI9342_HOR_RES;
-		color_map += ILI9342_HOR_RES;
-	}
-
-	ili9342_send_data((void *)color_map, size * 2); //Send the remaining data
-
-	lv_flush_ready();
-}
-#endif
-
 void ili9342_poweroff()
 {
 	esp_err_t err = ESP_OK;
@@ -262,19 +160,19 @@ void ili9342_poweroff()
 		cmd++;
 	}
 
-	err = rtc_gpio_init(ILI9342_BCKL);
+	err = rtc_gpio_init(DISP_BCKL);
 	if (err != ESP_OK)
 	{
 		abort();
 	}
 
-	err = rtc_gpio_set_direction(ILI9342_BCKL, RTC_GPIO_MODE_OUTPUT_ONLY);
+	err = rtc_gpio_set_direction(DISP_BCKL, RTC_GPIO_MODE_OUTPUT_ONLY);
 	if (err != ESP_OK)
 	{
 		abort();
 	}
 
-	err = rtc_gpio_set_level(ILI9342_BCKL, LCD_BACKLIGHT_ON_VALUE ? 0 : 1);
+	err = rtc_gpio_set_level(DISP_BCKL, LCD_BACKLIGHT_ON_VALUE ? 0 : 1);
 	if (err != ESP_OK)
 	{
 		abort();
@@ -284,26 +182,11 @@ void ili9342_poweroff()
 void ili9342_prepare()
 {
 	// Return use of backlight pin
-	esp_err_t err = rtc_gpio_deinit(ILI9342_BCKL);
+	esp_err_t err = rtc_gpio_deinit(DISP_BCKL);
 	if (err != ESP_OK)
 	{
 		abort();
 	}
-
-#if 0
-    // Disable backlight
-    err = gpio_set_direction(ILI9342_BCKL, GPIO_MODE_OUTPUT);
-    if (err != ESP_OK)
-    {
-        abort();
-    }
-
-    err = gpio_set_level(ILI9342_BCKL, LCD_BACKLIGHT_ON_VALUE ? 0 : 1);
-    if (err != ESP_OK)
-    {
-        abort();
-    }
-#endif
 }
 
 /**********************
@@ -352,7 +235,7 @@ static void backlight_init()
 	//set the duty for initialization.(duty range is 0 ~ ((2**duty_resolution)-1)
 	ledc_channel.duty = (LCD_BACKLIGHT_ON_VALUE) ? 0 : DUTY_MAX;
 	//GPIO number
-	ledc_channel.gpio_num = ILI9342_BCKL;
+	ledc_channel.gpio_num = DISP_BCKL;
 	//GPIO INTR TYPE, as an example, we enable fade_end interrupt here.
 	ledc_channel.intr_type = LEDC_INTR_FADE_END;
 	//set LEDC mode, from ledc_mode_t

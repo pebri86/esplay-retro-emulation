@@ -19,11 +19,6 @@ extern "C"
     /*********************
  *      DEFINES
  *********************/
-
-#define DISP_SPI_MOSI 23
-#define DISP_SPI_CLK 18
-#define DISP_SPI_CS 5
-#define DISP_SPI_DC 12
 #define CMD_ON 0
 #define DATA_ON 1
 

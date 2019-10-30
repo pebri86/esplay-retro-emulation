@@ -11,6 +11,7 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include <string.h>
+#include "pin_definitions.h"
 
 /*********************
  *      DEFINES

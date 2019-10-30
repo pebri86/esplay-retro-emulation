@@ -3,25 +3,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#if CONFIG_USE_LVGL_LIBRARY
-#include "lvgl/lv_hal/lv_hal_indev.h"
-#endif
-
-#ifdef CONFIG_ESPLAY20_HW
-#define A 32
-#define B 33
-#define START 36
-#define SELECT 0
-#define IO_Y ADC1_CHANNEL_7
-#define IO_X ADC1_CHANNEL_6
-#define MENU 13
-#endif
-
-#ifdef CONFIG_ESPLAY_MICRO_HW
-#define L_BTN   36
-#define R_BTN   34
-#define MENU    35
-#endif
 
 enum
 {
@@ -50,8 +31,5 @@ void input_gamepad_terminate();
 void gamepad_read(input_gamepad_state *out_state);
 input_gamepad_state gamepad_input_read_raw();
 
-#if CONFIG_USE_LVGL_LIBRARY
-bool lv_keypad_read(lv_indev_data_t *data);
-#endif
 
 #endif

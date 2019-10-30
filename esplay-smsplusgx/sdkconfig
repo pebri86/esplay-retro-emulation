@@ -44,16 +44,6 @@ CONFIG_SECURE_BOOT_ENABLED=
 CONFIG_FLASH_ENCRYPTION_ENABLED=
 
 #
-# LittleV Graphics Library
-#
-CONFIG_USE_LVGL_LIBRARY=
-
-#
-# SDCard Configuration
-#
-CONFIG_SDIO_DAT2_DISABLED=y
-
-#
 # Hardware configuration
 #
 CONFIG_ESPLAY20_HW=

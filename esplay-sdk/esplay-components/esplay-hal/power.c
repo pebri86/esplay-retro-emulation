@@ -6,8 +6,8 @@
 #include "driver/rtc_io.h"
 #include <driver/adc.h>
 #include "esp_adc_cal.h"
-
 #include "gamepad.h"
+#include "pin_definitions.h"
 
 static esp_adc_cal_characteristics_t characteristics;
 static bool input_battery_initialized = false;
@@ -99,7 +99,7 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
 
 void system_led_set(int state)
 {
-    gpio_set_level(GPIO_NUM_13, state);
+    gpio_set_level(LED1, state);
 }
 
 charging_state getChargeStatus()
@@ -163,14 +163,14 @@ static void battery_monitor_task()
 #define DEFAULT_VREF 1100
 void battery_level_init()
 {
-    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[GPIO_NUM_13], PIN_FUNC_GPIO);
-    gpio_set_direction(GPIO_NUM_13, GPIO_MODE_OUTPUT);
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[LED1], PIN_FUNC_GPIO);
+    gpio_set_direction(LED1, GPIO_MODE_OUTPUT);
     gpio_set_direction(USB_PLUG_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(USB_PLUG_PIN, GPIO_PULLUP_ONLY);
     gpio_set_direction(CHRG_STATE_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(CHRG_STATE_PIN, GPIO_PULLUP_ONLY);
     adc1_config_width(ADC_WIDTH_12Bit);
-    adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_11db);
+    adc1_config_channel_atten(ADC_PIN, ADC_ATTEN_11db);
 
     //int vref_value = odroid_settings_VRef_get();
     //esp_adc_cal_get_characteristics(vref_value, ADC_ATTEN_11db, ADC_WIDTH_12Bit, &characteristics);
@@ -199,7 +199,7 @@ void battery_level_read(battery_state *out_state)
     for (int i = 0; i < sampleCount; ++i)
     {
         //adcSample += adc1_to_voltage(ADC1_CHANNEL_0, &characteristics) * 0.001f;
-        adcSample += esp_adc_cal_raw_to_voltage(adc1_get_raw(ADC1_CHANNEL_3), &characteristics) * 0.001f;
+        adcSample += esp_adc_cal_raw_to_voltage(adc1_get_raw(ADC_PIN), &characteristics) * 0.001f;
     }
     adcSample /= sampleCount;
 

@@ -1,4 +1,4 @@
-# ESPlay GNUBoy - ESP32 Gameboy emulator 
+# ESPlay GNUBoy - ESP32 Gameboy emulator
 
 This branch only support [esplay-hardware], a esp32 device designed by me, and this branch only support ESP32 with PSRAM. If you're looking for old version please use esplay1.0 branch.
 
@@ -12,12 +12,12 @@ Place ROMS in folder named 'roms/gb' on root of sdcard, create following structu
 
 	|
 
- 	--roms 
-	
+ 	--roms
+
 	|	|
-		
+
 	|	--gbc (place your ROMS here)
-	
+
  	|
 
  	--esplay
@@ -27,11 +27,11 @@ Place ROMS in folder named 'roms/gb' on root of sdcard, create following structu
    	|	--data (this to place state file as .sav)
 
 		|
-		
+
 		--gbc
-		
+
 		|
-		
+
 		--nes
 
 Compiling
@@ -41,6 +41,6 @@ This code is an esp-idf project. You will need esp-idf to compile it. Newer vers
 for your reference, the code was tested against release/v3.2 branch of esp-idf.
 
 ROM
---- 
+---
 Place your ROM on SD Card in roms folder. Please provide ROM by yourself.
 

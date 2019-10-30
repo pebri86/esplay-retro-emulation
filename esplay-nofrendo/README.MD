@@ -1,4 +1,4 @@
-# ESPlay NES - ESP32 NES emulator 
+# ESPlay NES - ESP32 NES emulator
 
 This branch only support [esplay-hardware], a esp32 device designed by me, and this branch only support ESP32 with PSRAM. If you're looking for old version please use esplay1.0 branch.
 
@@ -12,12 +12,12 @@ Place ROMS in folder named 'roms/nes' on root of sdcard, create following struct
 
 	|
 
- 	--roms 
-	
+ 	--roms
+
 	|	|
-		
+
 	|	--nes (place your ROMS here)
-	
+
  	|
 
  	--esplay
@@ -27,11 +27,11 @@ Place ROMS in folder named 'roms/nes' on root of sdcard, create following struct
    	|	--data (this to place state file as .sav)
 
 		|
-		
+
 		--gbc
-		
+
 		|
-		
+
 		--nes
 
 Compiling
@@ -41,6 +41,6 @@ This code is an esp-idf project. You will need esp-idf to compile it. Newer vers
 for your reference, the code was tested against release/v3.2 branch of esp-idf.
 
 ROM
---- 
+---
 Place your ROM on SD Card in roms/nes folder. Please provide ROM by yourself.
 

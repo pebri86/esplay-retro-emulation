@@ -263,6 +263,14 @@ char *ui_file_chooser(const char *path, const char *filter, int currentItem, cha
         break;
       }
     }
+    else
+    {
+      if (!prevKey.values[GAMEPAD_INPUT_B] && key.values[GAMEPAD_INPUT_B])
+      {
+        vTaskDelay(10);
+        break;
+      }
+    }
 
     prevKey = key;
     vTaskDelay(10 / portTICK_PERIOD_MS);

@@ -4,7 +4,6 @@
 #include <time.h>
 #include <ctype.h>
 
-#include "nvs_flash.h"
 #include "esp_partition.h"
 #include "esp_system.h"
 #include "esp_heap_caps.h"
@@ -27,14 +26,16 @@
 #include "rtc.h"
 #include "rc.h"
 #include "sound.h"
+
 #include "settings.h"
 #include "sdcard.h"
 #include "display.h"
 
+
 void* FlashAddress = 0;
 FILE* RomFile = NULL;
 uint8_t BankCache[512 / 8];
-extern const char* SD_BASE_PATH;
+
 
 #ifndef GNUBOY_NO_MINIZIP
 static int check_zip(char *filename);
@@ -122,9 +123,7 @@ extern const char* SD_BASE_PATH;
 static void initmem(void *mem, int size)
 {
 	char *p = mem;
-	//memset(p, 0xff /*memfill*/, size);
-	if (memfill >= 0)
-		memset(p, memfill, size);
+	memset(p, 0xff /*memfill*/, size);
 }
 
 static byte *loadfile(FILE *f, int *len)
@@ -195,31 +194,8 @@ static byte *decompress(byte *data, int *len)
 
 int rom_load()
 {
-	/*byte c, *data, *header;
-	int len = 0, rlen;
-
-	const esp_partition_t* part;
-	spi_flash_mmap_handle_t hrom;
-	esp_err_t err;
-
-	nvs_flash_init();
-
-	part=esp_partition_find_first(0x40, 1, NULL);
-
-	if (part == 0) {
-		printf("Couldn't find rom part!\n");
-	}
-
-	err = esp_partition_mmap(part, 0, 3*1024*1024, SPI_FLASH_MMAP_DATA, (const void**)&data, &hrom);
-	if (err != ESP_OK) {
-		printf("Couldn't map rom part!\n");
-	}
-
-	BankCache[0] = 1;
-	*/
 	byte c, *data, *header;
 	int len = 0, rlen;
-	nvs_flash_init();
 
 	data = (void*)0x3f800000;
 
@@ -257,15 +233,46 @@ int rom_load()
 		esp_err_t r = sdcard_open(SD_BASE_PATH);
 		if (r != ESP_OK)
 		{
+			//odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
 			abort();
 		}
 
-		display_show_hourglass();
+		// load the first 16k
+		RomFile = fopen(romPath, "rb");
+		if (RomFile == NULL)
+		{
+			printf("loader: fopen failed.\n");
+                        //odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
+			abort();
+		}
+
 		// copy
-		sdcard_copy_file_to_memory(romPath, (void*)data);
+#if 0
+		const size_t BLOCK_SIZE = 512;
+		for (size_t offset = 0; offset < 0x4000; offset += BLOCK_SIZE)
+		{
+			size_t count = fread((uint8_t*)data + offset, 1, BLOCK_SIZE, RomFile);
+			__asm__("nop");
+			__asm__("nop");
+			__asm__("nop");
+			__asm__("nop");
+			__asm__("memw");
+
+			if (count < BLOCK_SIZE) break;
+		}
+#else
+		size_t count = fread((uint8_t*)data, 1, 0x4000, RomFile);
+		if (count < 0x4000)
+		{
+                        //odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
+			printf("loader: fread failed.\n");
+			abort();
+		}
+#endif
 
 		BankCache[0] = 1;
 	}
+
 
 	printf("Initialized. ROM@%p\n", data);
 	header = data;
@@ -334,8 +341,7 @@ int rom_load()
 	printf("loader: mbc.type=%s, mbc.romsize=%d (%dK), mbc.ramsize=%d (%dK)\n", mbcName, mbc.romsize, rlen / 1024, mbc.ramsize, sram_length / 1024);
 
 	// ROM
-	//rom.bank[0] = data;
-	rom.bank = data;
+	rom.bank[0] = data;
 	rom.length = rlen;
 
 	// SRAM
@@ -380,7 +386,7 @@ int sram_load()
 	/* Consider sram loaded at this point, even if file doesn't exist */
 	ram.loaded = 1;
 
-	/*
+
 	const esp_partition_t* part;
 	spi_flash_mmap_handle_t hrom;
 	esp_err_t err;
@@ -403,7 +409,7 @@ int sram_load()
 			printf("sram_load: sram load OK.\n");
 			ram.sram_dirty = 0;
 		}
-	}*/
+	}
 
 	return 0;
 }
@@ -415,7 +421,7 @@ int sram_save()
 	if (!mbc.batt || !ram.loaded || !mbc.ramsize)
 		return -1;
 
-	/*const esp_partition_t* part;
+	const esp_partition_t* part;
 	spi_flash_mmap_handle_t hrom;
 	esp_err_t err;
 
@@ -443,7 +449,7 @@ int sram_save()
 		{
 				printf("sram_load: sram save OK.\n");
 		}
-	}*/
+	}
 
 	return 0;
 }
@@ -520,7 +526,7 @@ void loader_unload()
 	if (rom.bank) free(rom.bank);
 	if (ram.sbank) free(ram.sbank);
 	romfile = sramfile = saveprefix = 0;
-	rom.bank = 0;
+	rom.bank[0] = 0;
 	ram.sbank = 0;
 	mbc.type = mbc.romsize = mbc.ramsize = mbc.batt = 0;
 }

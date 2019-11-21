@@ -46,6 +46,33 @@ struct scan scan;
 #define WV (scan.wv)
 
 
+// Important! Colors are defined in reversed order: 0xBBGGRR !!!
+#define GB_DEFAULT_PALETTE { 0xd5f3ef, 0x7ab6a3, 0x3b6137, 0x161c04 }
+#define GB_2BGRAYS_PALETTE { 0xffffff, 0xb6b6b6, 0x676767, 0x000000 }
+#define GB_LINKSAW_PALETTE { 0xb5ffff, 0x7bc67b, 0x428c6b, 0x21395a }
+#define GB_NSUPRGB_PALETTE { 0xc6e7f7, 0x498ed6, 0x2537a6, 0x501e33 }
+#define GB_NGBARNE_PALETTE { 0x6bb5ac, 0x488476, 0x3f503f, 0x373124 }
+#define GB_GRAPEFR_PALETTE { 0xddf5ff, 0x6bb2f4, 0x9165b7, 0x6c2965 }
+#define GB_MEGAMAN_PALETTE { 0xcecece, 0xdf9e6f, 0x8e6742, 0x332510 }
+#define GB_POKEMON_PALETTE { 0xffefff, 0x8cb5f7, 0x9c7384, 0x101018 }
+
+
+
+
+
+static int palettes[8][4] = {GB_DEFAULT_PALETTE,
+							GB_2BGRAYS_PALETTE,
+							GB_LINKSAW_PALETTE,
+							GB_NSUPRGB_PALETTE,
+							GB_NGBARNE_PALETTE,
+							GB_GRAPEFR_PALETTE,
+							GB_MEGAMAN_PALETTE,
+							GB_POKEMON_PALETTE	};
+
+static int current_palette = 1;
+static int nr_of_palettes = 8;
+
+					
 static int sprsort = 1;
 static int sprdebug = 0;
 
@@ -57,11 +84,11 @@ static int dmg_pal[4][4] = {{0xffffff, 0x808080, 0x404040, 0x000000},
 							{0x00ff00, 0x008000, 0x004000, 0x000000},
 							{0x0000ff, 0x000080, 0x000040, 0x000000} };
 #else
-#define GB_DEFAULT_PALETTE { 0xd5f3ef, 0x7ab6a3, 0x3b6137, 0x161c04 }
-static int dmg_pal[4][4] = {GB_DEFAULT_PALETTE,
-	 						GB_DEFAULT_PALETTE,
-							GB_DEFAULT_PALETTE,
-							GB_DEFAULT_PALETTE };
+ static int dmg_pal[4][4] = {GB_NGBARNE_PALETTE,
+	 						GB_NGBARNE_PALETTE,
+							GB_NGBARNE_PALETTE,
+							GB_NGBARNE_PALETTE };
+
 #endif
 
 static byte *vdest;
@@ -718,6 +745,11 @@ void IRAM_ATTR lcd_refreshline()
 	vdest += fb.pitch;
 }
 
+//void change_palette(int i)
+//{
+	
+//}
+
 inline static void updatepalette(int i)
 {
 	short c;
@@ -785,6 +817,32 @@ inline void vram_write(int a, byte b)
 
 void vram_dirty()
 {
+}
+
+void pal_set(int palette)
+{
+	int i,j;
+	current_palette = palette % nr_of_palettes;
+	
+	for(i = 0; i < 4; i++)
+	{
+		for(j = 0; j < 4;j++)
+		{
+			 dmg_pal[i][j] = palettes[current_palette][j];
+		}
+	}
+	
+	pal_dirty();	
+}
+
+void pal_next()
+{
+	pal_set(current_palette + 1);
+}
+
+int pal_get()
+{
+	return current_palette;
 }
 
 void pal_dirty()

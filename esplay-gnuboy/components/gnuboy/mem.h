@@ -30,7 +30,7 @@ struct mbc
 
 struct rom
 {
-	byte (* bank)[16384];
+	byte* bank[512];
 	char name[20];
 	int length;
 };

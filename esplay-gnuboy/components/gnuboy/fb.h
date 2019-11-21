@@ -6,6 +6,8 @@
 
 #include "defs.h"
 
+
+
 struct fb
 {
 	byte *ptr;

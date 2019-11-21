@@ -8,8 +8,8 @@
 #include "settings.h"
 #include "pin_definitions.h"
 
-static float Volume = 0.5f;
-static int volumeLevel = 25;
+static float Volume = 1.0f;
+static int volumeLevel = 30;
 static int sampleRate;
 
 int audio_volume_get()
@@ -26,7 +26,7 @@ void audio_volume_set(int value)
     }
 
     volumeLevel = value;
-    Volume = (float)volumeLevel * 0.001f;
+    Volume = (float)(volumeLevel*10) * 0.001f;
 
     if (volumeLevel == 0)
         audio_amp_disable();
@@ -44,11 +44,11 @@ void audio_init(int sample_rate)
         .bits_per_sample = 16,
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, //2-channels
         .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
-        .dma_buf_count = 6,
+        .dma_buf_count = 8,
         //.dma_buf_len = 1472 / 2,  // (368samples * 2ch * 2(short)) = 1472
-        .dma_buf_len = 512,                       // (416samples * 2ch * 2(short)) = 1664
+        .dma_buf_len = 534,                       // (416samples * 2ch * 2(short)) = 1664
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1, //Interrupt level 1
-        .use_apll = false
+        .use_apll = 1
         };
 
     i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL);

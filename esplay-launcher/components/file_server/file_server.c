@@ -130,8 +130,6 @@ static esp_err_t http_resp_dir_html(httpd_req_t *req, const char *dirpath)
         return ESP_FAIL;
     }
 
-    SD_getFreeSpace(&btot, &bfree);
-    sprintf(storageSpace, "Storage : %10lu/%10lu MiB available.", (unsigned long)(bfree / 1024), (unsigned long)(btot / 1024));
     /* Send HTML file header */
     httpd_resp_sendstr_chunk(req, "<!DOCTYPE html><html><body>");
 
@@ -142,8 +140,6 @@ static esp_err_t http_resp_dir_html(httpd_req_t *req, const char *dirpath)
 
     /* Add file upload form and script which on execution sends a POST request to /upload */
     httpd_resp_send_chunk(req, (const char *)upload_script_start, upload_script_size);
-
-    httpd_resp_sendstr_chunk(req, storageSpace);
     /* Send file-list table definition and column labels */
     httpd_resp_sendstr_chunk(req,
                              "<table class=\"t\">"
@@ -194,7 +190,9 @@ static esp_err_t http_resp_dir_html(httpd_req_t *req, const char *dirpath)
 
     /* Finish the file list table */
     httpd_resp_sendstr_chunk(req, "</tbody></table>");
-
+    SD_getFreeSpace(&btot, &bfree);
+    sprintf(storageSpace, "Storage : %10lu/%10lu MiB available.", (unsigned long)(bfree / 1024), (unsigned long)(btot / 1024));
+    httpd_resp_sendstr_chunk(req, storageSpace);
     /* Send remaining chunk of HTML file to complete it */
     httpd_resp_sendstr_chunk(req, "</div></body></html>");
 

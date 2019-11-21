@@ -62,6 +62,56 @@ void ui_display_progress(int x, int y, int width, int height, int percent, UG_CO
     UG_FillFrame(x, y, x + fillWidth, y + height, progressColor);
 }
 
+void ui_display_seekbar(int x, int y, int width, int percent, UG_COLOR barColor, UG_COLOR seekColor)
+{
+  if (percent > 100)
+    percent = 100;
+
+  const int barHeight = 4;
+  int pos = x + (width * (percent / 100.0f));
+
+  UG_FillFrame(x, y, x + width, y + barHeight, barColor);
+
+  if (pos > 0)
+  {
+    if (pos > (x + (width - 6)))
+        pos =  x + (width - 6);
+    UG_FillFrame(pos, y - 2, pos + 6, y + barHeight + 2, seekColor);
+    UG_DrawFrame(pos - 1, y - 3, pos + 7, y + barHeight + 3, barColor);
+  }
+  else
+  {
+    UG_FillFrame(x, y - 2, x + 6, y + barHeight + 2, seekColor);
+    UG_DrawFrame(x - 1, y - 3, x + 7, y + barHeight + 3, barColor);
+  }
+}
+
+/// Make the game name nicer by cutting at brackets or (last) dot.
+static int cut_game_name(char *game){
+
+	char *dot = strrchr(game,'.');
+	char *brack1 = strchr(game,'[');
+	char *brack2 = strchr(game,'(');
+
+	int len = strlen(game);
+	if(dot!=NULL && dot-game<len ){
+		len = dot-game;
+	}
+	if(brack1!=NULL && brack1-game<len ){
+		len = brack1-game;
+		if(game[len-1]==' '){
+			len--;
+		}
+	}
+	if(brack2!=NULL && brack2-game<len ){
+		len = brack2-game;
+		if(game[len-1]==' '){
+			len--;
+		}
+	}
+	return len;
+}
+
 static void ui_draw_page_list(char **files, int fileCount, int currentItem, int extLen, char *title)
 {
   /* Header */
@@ -137,12 +187,13 @@ static void ui_draw_page_list(char **files, int fileCount, int currentItem, int 
       char *filename = files[page + line];
       if (!filename)
         abort();
-      displayStr[line] = (char *)malloc(strlen(filename) + 1);
-      strcpy(displayStr[line], filename);
-      displayStr[line][strlen(filename) - extLen] = 0;
-      char truncnm[MAX_CHR + 1];
+      int length = cut_game_name(filename);
+      displayStr[line] = (char *)malloc(length + 1);
+      strncpy(displayStr[line], filename, length);
+      displayStr[line][length] = 0;
+      char truncnm[MAX_CHR];
       strncpy(truncnm, displayStr[line], MAX_CHR);
-      truncnm[MAX_CHR] = 0;
+      truncnm[MAX_CHR - 1] = 0;
       UG_PutString((320 / 2) - (strlen(truncnm) * 9 / 2), top, truncnm);
     }
     ui_flush();

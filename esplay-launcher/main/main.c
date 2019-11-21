@@ -34,6 +34,9 @@ int num_menu = 5;
 char menu_text[5][20] = {"WiFi AP *", "Volume", "Brightness", "Upscaler", "Quit"};
 char scaling_text[3][20] = {"Native", "Normal", "Stretch"};
 uint8_t wifi_en;
+int fullCtr=0;
+int fixFull=0;
+
 
 esp_err_t start_file_server(const char *base_path);
 
@@ -78,10 +81,20 @@ static void drawBattery(int batPercent)
 {
     charging_state st = getChargeStatus();
     if (st == CHARGING)
+    {
         renderGraphics(320 - 25, 0, 24 * 5, 0, 24, 24);
-    else if (st == FULL_CHARGED)
+        fullCtr=0;
+    }
+    if (st == FULL_CHARGED || fixFull)
+        fullCtr++;
+
+    if (fullCtr == 32)
+        fixFull = 1;
+
+    if (fixFull)
         renderGraphics(320 - 25, 0, 24 * 6, 0, 24, 24);
-    else
+
+    if (st == NO_CHRG)
     {
         if (batPercent > 75 && batPercent <= 100)
             renderGraphics(320 - 25, 0, 24 * 4, 0, 24, 24);
@@ -245,16 +258,10 @@ static void showOptionPage(int selected)
     {
         short top = 18 + i * 15 + 8;
         if (i == selected)
-        {
-            UG_FillFrame(0, top - 1, 319, top + 13, C_YELLOW);
-            UG_SetForecolor(C_BLACK);
-            UG_SetBackcolor(C_YELLOW);
-        }
+            UG_SetForecolor(C_YELLOW);
         else
-        {
             UG_SetForecolor(C_WHITE);
-            UG_SetBackcolor(C_BLACK);
-        }
+
         UG_PutString(0, top, menu_text[i]);
 
         char *val;
@@ -267,15 +274,19 @@ static void showOptionPage(int selected)
             break;
         case 1:
             if (i == selected)
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_BLACK, C_YELLOW, C_BLACK);
+                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_BLACK, C_YELLOW, C_BLACK);
+                ui_display_seekbar((320 - 103), top + 4, 100, (volume * 100) / 100, C_YELLOW, C_RED);
             else
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_WHITE, C_BLACK, C_WHITE);
+                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_WHITE, C_BLACK, C_WHITE);
+                ui_display_seekbar((320 - 103), top + 4, 100, (volume * 100) / 100, C_WHITE, C_RED);
             break;
         case 2:
             if (i == selected)
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_BLACK, C_YELLOW, C_BLACK);
+                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_BLACK, C_YELLOW, C_BLACK);
+                ui_display_seekbar((320 - 103), top + 4, 100, (bright * 100) / 100, C_YELLOW, C_RED);
             else
-                ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_WHITE, C_BLACK, C_WHITE);
+                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_WHITE, C_BLACK, C_WHITE);
+                ui_display_seekbar((320 - 103), top + 4, 100, (bright * 100) / 100, C_WHITE, C_RED);
             break;
         case 3:
             UG_PutString(319 - (strlen(scaling_text[scaling]) * 9), top, scaling_text[scaling]);

@@ -119,6 +119,11 @@ static void battery_monitor_task()
 {
     bool led_state = false;
     charging_state chrg;
+    int fullCtr=0;
+	//The LiIon charger sometimes goes back from 'full' to 'charging', which is
+	//confusing to the end user. This variable becomes true if the LiIon has indicated 'full'
+	//for a while, and it being true causes the 'full' icon to always show.
+	int fixFull=0;
     while (true)
     {
         if (battery_monitor_enabled)
@@ -139,19 +144,33 @@ static void battery_monitor_task()
             else
             {
                 chrg = getChargeStatus();
-                switch (chrg)
+                if (chrg == FULL_CHARGED || fixFull)
                 {
-                case NO_CHRG:
+                    fullCtr++;
+                }
+
+                if (chrg == CHARGING)
+                {
+                    fullCtr = 0;
+                }
+
+                if (fullCtr == 32)
+                {
+                    fixFull = 1;
+                }
+
+                if (fixFull)
+                {
                     system_led_set(0);
-                    break;
-                case CHARGING:
+                }
+                else
+                {
                     system_led_set(1);
-                    break;
-                case FULL_CHARGED:
+                }
+
+                if (chrg == NO_CHRG)
+                {
                     system_led_set(0);
-                    break;
-                default:
-                    break;
                 }
             }
         }

@@ -68,9 +68,31 @@ static void sort_files(char **files, int count)
     }
 }
 
+int sdcard_get_files_count(const char *path)
+{
+    int file_count = 0;
+    DIR * dirp;
+    struct dirent * entry;
+
+    dirp = opendir(path); /* There should be error handling after this */
+    if (dirp == NULL)
+    {
+        printf("opendir failed.\n");
+        return 0;
+    }
+    while ((entry = readdir(dirp)) != NULL) {
+        if (entry->d_type == DT_REG) { /* If the entry is a regular file */
+            file_count++;
+        }
+    }
+    closedir(dirp);
+
+    return file_count;
+}
+
 int sdcard_files_get(const char *path, const char *extension, char ***filesOut)
 {
-    const int MAX_FILES = 1024;
+    const int MAX_FILES = 2048;
 
     int count = 0;
     char **result = (char **)malloc(MAX_FILES * sizeof(void *));

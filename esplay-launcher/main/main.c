@@ -541,6 +541,16 @@ void app_main(void)
         }
         else if (doRefresh)
         {
+            char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
+            strcpy(path, base_path);
+            strcat(path, emu_dir[menuItem]);
+            int count = sdcard_get_files_count(path);
+            char text[320];
+            sprintf(text, "%i games available", count);
+            ui_clear_screen();
+            drawHomeScreen();
+            UG_PutString((320/2) - (strlen(text) * 9 / 2), 64, text);
+            ui_flush();
             scrollGfx(0, 78, 0, (56 * menuItem) + 24, 320, 56);
             doRefresh = 0;
         }

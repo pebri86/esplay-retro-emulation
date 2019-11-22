@@ -244,14 +244,12 @@ static void showOptionPage(int selected)
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 30, "* restart required");
     esp_app_desc_t * desc = esp_ota_get_app_description();
-    char version[512];
     char idfVer[512];
-    sprintf(version,"v%s", desc->version);
     sprintf(idfVer,"IDF %s", desc->idf_ver);
     UG_SetForecolor(C_WHITE);
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 72, desc->project_name);
-    UG_PutString(0, 240 - 58, version);
+    UG_PutString(0, 240 - 58, desc->version);
     UG_PutString(0, 240 - 44, idfVer);
     uint8_t wifi = get_wifi_settings();
     uint8_t volume = get_volume_settings();

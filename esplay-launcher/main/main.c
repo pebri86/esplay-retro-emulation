@@ -243,12 +243,16 @@ static void showOptionPage(int selected)
     UG_SetForecolor(C_RED);
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 30, "* restart required");
-    char tempString[512];
-    sprintf(tempString,"BuildVer: %s-%s", COMPILEDATE, GITREV);
+    esp_app_desc_t * desc = esp_ota_get_app_description();
+    char version[512];
+    char idfVer[512];
+    sprintf(version,"v%s", desc->version);
+    sprintf(idfVer,"IDF %s", desc->idf_ver);
     UG_SetForecolor(C_WHITE);
     UG_SetBackcolor(C_BLACK);
-    UG_PutString(0, 240 - 44, tempString);
-    UG_PutString(0, 240 - 58, "Retro Launcher");
+    UG_PutString(0, 240 - 72, desc->project_name);
+    UG_PutString(0, 240 - 58, version);
+    UG_PutString(0, 240 - 44, idfVer);
     uint8_t wifi = get_wifi_settings();
     uint8_t volume = get_volume_settings();
     uint8_t bright = get_backlight_settings();
@@ -269,8 +273,11 @@ static void showOptionPage(int selected)
         switch (i)
         {
         case 0:
-            val = (wifi) ? "ON" : "OFF";
-            UG_PutString(319 - (strlen(val) * 9), top, val);
+            if (i == selected)
+                ui_display_switch(307, top, wifi, C_YELLOW, C_BLUE, C_GRAY);
+            else
+                ui_display_switch(307, top, wifi, C_WHITE, C_BLUE, C_GRAY);
+            //UG_PutString(319 - (strlen(val) * 9), top, val);
             break;
         case 1:
             if (i == selected)

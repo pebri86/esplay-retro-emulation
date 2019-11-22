@@ -86,26 +86,43 @@ void ui_display_seekbar(int x, int y, int width, int percent, UG_COLOR barColor,
   }
 }
 
-/// Make the game name nicer by cutting at brackets or (last) dot.
-static int cut_game_name(char *game){
+void ui_display_switch(int x, int y, int state, UG_COLOR backColor, UG_COLOR enabledColor, UG_COLOR disabledColor)
+{
+   if (state)
+   {
+     UG_FillFrame(x, y, x+10, y+8, backColor);
+     UG_FillFrame(x+5, y+1, x+5+4, y+1+6, enabledColor);
+     UG_DrawFrame(x+5, y+1, x+5+4, y+1+6, C_BLACK);
+   }
+   else
+   {
+     UG_FillFrame(x, y, x+10, y+8, backColor);
+     UG_FillFrame(x+1, y+1, x+1+4, y+1+6, disabledColor);
+     UG_DrawFrame(x+1, y+1, x+1+4, y+1+6, C_BLACK);
+   }
 
-	char *dot = strrchr(game,'.');
-	char *brack1 = strchr(game,'[');
-	char *brack2 = strchr(game,'(');
+}
 
-	int len = strlen(game);
-	if(dot!=NULL && dot-game<len ){
-		len = dot-game;
+/// Make the file name nicer by cutting at brackets or (last) dot.
+static int cut_file_name(char *filename){
+
+	char *dot = strrchr(filename,'.');
+	char *brack1 = strchr(filename,'[');
+	char *brack2 = strchr(filename,'(');
+
+	int len = strlen(filename);
+	if(dot!=NULL && dot-filename<len ){
+		len = dot-filename;
 	}
-	if(brack1!=NULL && brack1-game<len ){
-		len = brack1-game;
-		if(game[len-1]==' '){
+	if(brack1!=NULL && brack1-filename<len ){
+		len = brack1-filename;
+		if(filename[len-1]==' '){
 			len--;
 		}
 	}
-	if(brack2!=NULL && brack2-game<len ){
-		len = brack2-game;
-		if(game[len-1]==' '){
+	if(brack2!=NULL && brack2-filename<len ){
+		len = brack2-filename;
+		if(filename[len-1]==' '){
 			len--;
 		}
 	}
@@ -187,7 +204,7 @@ static void ui_draw_page_list(char **files, int fileCount, int currentItem, int 
       char *filename = files[page + line];
       if (!filename)
         abort();
-      int length = cut_game_name(filename);
+      int length = cut_file_name(filename);
       displayStr[line] = (char *)malloc(length + 1);
       strncpy(displayStr[line], filename, length);
       displayStr[line][length] = 0;

@@ -20,6 +20,11 @@ static void pset(UG_S16 x, UG_S16 y, UG_COLOR color)
   fb[y * 320 + x] = color;
 }
 
+uint16_t * ui_get_fb()
+{
+  return fb;
+}
+
 void ui_clear_screen()
 {
   memset(fb, 0, 320 * 240 * 2);

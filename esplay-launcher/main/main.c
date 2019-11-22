@@ -20,9 +20,11 @@
 #include "sdcard.h"
 #include "esplay-ui.h"
 #include "ugui.h"
-#include "gfxTile.h"
+static const char gfxTile[]={
+#include "gfxTile.inc"
+};
 
-#define SCROLLSPD 16
+#define SCROLLSPD 64
 #define NUM_EMULATOR 6
 
 char emu_dir[10][6] = {"nes", "gb", "gbc", "sms", "gg", "col"};
@@ -47,11 +49,9 @@ esp_err_t event_handler(void *ctx, system_event_t *event)
 
 static void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
 {
-    renderGfx(dx, dy, sw, sh, gfxTile.pixel_data, sx, sy, gfxTile.width);
-}
-
-static void scrollGfx(int dx, int dy, int sx, int sy, int sw, int sh)
-{
+    uint16_t *fb = ui_get_fb();
+    uint16_t *gfx = (uint16_t*)gfxTile;
+    int x,y,i;
     if (dx < 0)
     {
         sx -= dx;
@@ -74,7 +74,12 @@ static void scrollGfx(int dx, int dy, int sx, int sy, int sw, int sh)
         sh -= ((dy + sh) - 240);
         dy = 240 - sh;
     }
-    renderGraphics(dx, dy, sx, sy, sw, sh);
+    for (y=0; y<sh; y++) {
+		for (x=0; x<sw; x++) {
+			i=gfx[(sy+y)*320+(sx+x)];
+			fb[(dy+y)*320+(dx+x)]=i;
+		}
+	}
 }
 
 static void drawBattery(int batPercent)
@@ -119,6 +124,7 @@ static void drawVolume(int volume)
 
 static void drawHomeScreen()
 {
+    ui_clear_screen();
     UG_SetForecolor(C_YELLOW);
     UG_SetBackcolor(C_BLACK);
     char *title = "ESPlay Micro";
@@ -214,6 +220,7 @@ static int resume(void)
 
 static void showOptionPage(int selected)
 {
+    ui_clear_screen();
     /* Header */
     UG_FillFrame(0, 0, 320 - 1, 16 - 1, C_BLUE);
     UG_SetForecolor(C_WHITE);
@@ -266,7 +273,6 @@ static void showOptionPage(int selected)
 
         UG_PutString(0, top, menu_text[i]);
 
-        char *val;
         // show value on right side
         switch (i)
         {
@@ -275,22 +281,17 @@ static void showOptionPage(int selected)
                 ui_display_switch(307, top, wifi, C_YELLOW, C_BLUE, C_GRAY);
             else
                 ui_display_switch(307, top, wifi, C_WHITE, C_BLUE, C_GRAY);
-            //UG_PutString(319 - (strlen(val) * 9), top, val);
             break;
         case 1:
             if (i == selected)
-                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_BLACK, C_YELLOW, C_BLACK);
                 ui_display_seekbar((320 - 103), top + 4, 100, (volume * 100) / 100, C_YELLOW, C_RED);
             else
-                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (volume * 100) / 255, C_WHITE, C_BLACK, C_WHITE);
                 ui_display_seekbar((320 - 103), top + 4, 100, (volume * 100) / 100, C_WHITE, C_RED);
             break;
         case 2:
             if (i == selected)
-                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_BLACK, C_YELLOW, C_BLACK);
                 ui_display_seekbar((320 - 103), top + 4, 100, (bright * 100) / 100, C_YELLOW, C_RED);
             else
-                //ui_display_progress((320 - 100 - 3), top + 2, 100, 8, (bright * 100) / 100, C_WHITE, C_BLACK, C_WHITE);
                 ui_display_seekbar((320 - 103), top + 4, 100, (bright * 100) / 100, C_WHITE, C_RED);
             break;
         case 3:
@@ -308,7 +309,6 @@ static int showOption()
 {
     int initial_wifi_settings = get_wifi_settings();
     int selected = 0;
-    ui_clear_screen();
     showOptionPage(selected);
 
     input_gamepad_state prevKey;
@@ -501,6 +501,8 @@ void app_main(void)
     int prevItem = 0;
     int scroll = 0;
     int doRefresh = 1;
+	int oldArrowsTick = -1;
+    int lastUpdate = 0;
     charging_state chrg_st = getChargeStatus();
     input_gamepad_state prevKey;
     gamepad_read(&prevKey);
@@ -514,7 +516,6 @@ void app_main(void)
             if (menuItem > NUM_EMULATOR - 1)
                 menuItem = 0;
             scroll = -SCROLLSPD;
-            doRefresh = 1;
         }
         if (!prevKey.values[GAMEPAD_INPUT_RIGHT] && joystick.values[GAMEPAD_INPUT_RIGHT] && !scroll)
         {
@@ -522,7 +523,6 @@ void app_main(void)
             if (menuItem < 0)
                 menuItem = NUM_EMULATOR - 1;
             scroll = SCROLLSPD;
-            doRefresh = 1;
         }
         if (scroll > 0)
             scroll += SCROLLSPD;
@@ -532,27 +532,41 @@ void app_main(void)
         {
             prevItem = menuItem;
             scroll = 0;
+            doRefresh = 1;
         }
         if (prevItem != menuItem)
-            scrollGfx(scroll, 78, 0, (56 * prevItem) + 24, 320, 56);
+            renderGraphics(scroll, 78, 0, (56 * prevItem) + 24, 320, 56);
         if (scroll)
         {
-            scrollGfx(scroll + ((scroll > 0) ? -320 : 320), 78, 0, (56 * menuItem) + 24, 320, 56);
+            renderGraphics(scroll + ((scroll > 0) ? -320 : 320), 78, 0, (56 * menuItem) + 24, 320, 56);
+            doRefresh = 1;
+            lastUpdate = 0;
         }
-        else if (doRefresh)
+        else
         {
-            char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
-            strcpy(path, base_path);
-            strcat(path, emu_dir[menuItem]);
-            int count = sdcard_get_files_count(path);
-            char text[320];
-            sprintf(text, "%i games available", count);
-            ui_clear_screen();
-            drawHomeScreen();
-            UG_PutString((320/2) - (strlen(text) * 9 / 2), 64, text);
-            ui_flush();
-            scrollGfx(0, 78, 0, (56 * menuItem) + 24, 320, 56);
-            doRefresh = 0;
+            int update = 1;
+            if(update!=lastUpdate)
+            {
+                char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
+                strcpy(path, base_path);
+                strcat(path, emu_dir[menuItem]);
+                int count = sdcard_get_files_count(path);
+                char text[320];
+                sprintf(text, "%i games available", count);
+                UG_FillFrame(0, 64, 319, 76, C_BLACK);
+                UG_PutString((320/2) - (strlen(text) * 9 / 2), 64, text);
+                renderGraphics(0, 78, 0, (56 * menuItem) + 24, 320, 56);
+                lastUpdate = update;
+            }
+            //Render arrows
+			int t=xTaskGetTickCount()/(400/portTICK_PERIOD_MS);
+			t=(t&1);
+			if (t!=oldArrowsTick) {
+				doRefresh=1;
+				renderGraphics(10, 90, t?0:32, 359, 32, 23);
+				renderGraphics(276, 90, t?64:96, 359, 32, 23);
+				oldArrowsTick=t;
+			}
         }
         if (!prevKey.values[GAMEPAD_INPUT_A] && joystick.values[GAMEPAD_INPUT_A])
         {
@@ -576,9 +590,8 @@ void app_main(void)
             free(path);
 
             // B Pressed instead of A
-            ui_clear_screen();
-            ui_flush();
             drawHomeScreen();
+            lastUpdate = 0;
             doRefresh = 1;
         }
         if (!prevKey.values[GAMEPAD_INPUT_B] && joystick.values[GAMEPAD_INPUT_B])
@@ -590,8 +603,8 @@ void app_main(void)
             if (r)
                 esp_restart();
 
-            ui_clear_screen();
             drawHomeScreen();
+            lastUpdate = 0;
             doRefresh = 1;
         }
 
@@ -599,10 +612,14 @@ void app_main(void)
         {
             battery_level_read(&bat_state);
             drawBattery(bat_state.percentage);
-            doRefresh = 1;
+            //doRefresh = 1;
             chrg_st = getChargeStatus();
         }
 
+        if (doRefresh)
+            ui_flush();
+
+        doRefresh = 0;
         prevKey = joystick;
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }

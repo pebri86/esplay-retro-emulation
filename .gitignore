@@ -65,3 +65,6 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# misc
+*.stackdump

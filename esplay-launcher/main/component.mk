@@ -7,8 +7,5 @@ COMPONENTS_EXTRA_CLEAN := gfxTile.inc gfxTile.raw
 main.o: gfxTile.inc
 
 gfxTile.inc: $(COMPONENT_PATH)/gfxTile.png
-	# using linux environtment
-	#convert $^ -background none -layers flatten -crop 80x142+0+0 graphics.rgba
-	# using mingw32 environment
 	ffmpeg -i $^ -f rawvideo -pix_fmt rgb565 gfxTile.raw
 	cat gfxTile.raw | xxd -i > gfxTile.inc

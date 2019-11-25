@@ -4,11 +4,12 @@ Description and Video Review
 ----------------------------
 <a href="http://www.youtube.com/watch?feature=player_embedded&v=NfbxcjU85Ac" target="_blank"><img src="https://i.ytimg.com/vi/NfbxcjU85Ac/hqdefault.jpg" alt="Youtube Video" width="480" height="320" border="10" /></a>
 
-This projects is a set of firmware for playing second and third generation gaming platform and to be runs on [esplay-micro-hardware], an ESP32 Devices with WROVER Module (4MB PSRAM). All emulator have in-game. Due to small Flash ROM (only 4MB) currently only 3 game emulator could be bundled altough this device support 7 emulator including Atari, PC Engine, ZX-Spectrum, MSX, etc.
+This projects is a set of firmware for playing second and third generation gaming platform and to be runs on [esplay-micro-hardware], an ESP32 Devices with WROVER Module (4MB PSRAM) which you could find the details on my [hackaday] page. This hardware also commercially available on the [Makerfabs] Online Store. Due to small Flash ROM (only 4MB) currently only 3 game emulator could be bundled altough this device support 7 emulator including Atari, PC Engine, ZX-Spectrum, MSX, etc.
 The main feature of this projects is bundled as follow:
 - Nofrendo NES Emulator for play Nintendo ROM
 - GNUBoy for play GameBoy and GameBoy Color
 - SMSPlusGX could play Sega Master System, Game Gear and Coleco Vision ROM
+- In-Game menu on Emulator
 - Esplay launcher, new code base using UGUI library
 
 Launcher Option
@@ -19,8 +20,6 @@ ESPlay Launcher has Wifi AP options so you can upload rom by using web interface
 
 Here spoiler Retro-ESP32 launcher running on [esplay-micro-hardware]
 ![esplay-micro-hardware](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/esplay-retro-esp32.png)
-
-[esplay-micro-hardware]: https://github.com/pebri86/esplay_micro_hardware
 
 Compiling
 ---------
@@ -55,4 +54,7 @@ Thanks to contribute your work for this project.
 
 
 [32teeth]:https://github.com/32teeth
+[esplay-micro-hardware]: https://github.com/pebri86/esplay_micro_hardware
+[Makerfabs]: https://www.makerfabs.com/esplay-micro.html
+[hackaday]: https://hackaday.io/project/166707-esplay-micro
 

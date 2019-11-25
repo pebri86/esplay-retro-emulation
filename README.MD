@@ -1,4 +1,5 @@
- # ESPlay Retro Emulation ![retro-emulation](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/retro_emulation.png) ![Github All Releases](https://img.shields.io/github/downloads/pebri86/esplay-retro-emulation/total.svg) ![Github Last Commit](https://img.shields.io/github/last-commit/pebri86/esplay-retro-emulation)
+ # ESPlay Retro Emulation 
+![retro-emulation](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/master/docs/retro_emulation.png) [![GitHub release](https://img.shields.io/github/release/pebri86/esplay-retro-emulation.svg)](https://GitHub.com/pebri86/esplay-retro-emulation/releases/) ![Github All Releases](https://img.shields.io/github/downloads/pebri86/esplay-retro-emulation/total.svg) ![Github Last Commit](https://img.shields.io/github/last-commit/pebri86/esplay-retro-emulation)
 
 Description and Video Review
 ----------------------------

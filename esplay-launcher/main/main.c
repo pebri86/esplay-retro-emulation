@@ -27,11 +27,10 @@ static const char gfxTile[]={
 #define SCROLLSPD 64
 #define NUM_EMULATOR 6
 
-char emu_dir[10][6] = {"nes", "gb", "gbc", "sms", "gg", "col"};
-char emu_name[20][6] = {"Nintendo", "Gameboy", "Gameboy Color", "Sega Master System", "Game Gear", "Coleco Vision"};
+char emu_dir[6][10] = {"nes", "gb", "gbc", "sms", "gg", "col"};
+char emu_name[6][20] = {"Nintendo", "Gameboy", "Gameboy Color", "Sega Master System", "Game Gear", "Coleco Vision"};
 int emu_slot[6] = {1, 2, 2, 3, 3, 3};
 char *base_path = "/sd/roms/";
-extern uint16_t fb[];
 battery_state bat_state;
 int num_menu = 5;
 char menu_text[5][20] = {"WiFi AP *", "Volume", "Brightness", "Upscaler", "Quit"};

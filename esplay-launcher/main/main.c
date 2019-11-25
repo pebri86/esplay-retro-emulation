@@ -28,6 +28,7 @@ static const char gfxTile[]={
 #define NUM_EMULATOR 6
 
 char emu_dir[10][6] = {"nes", "gb", "gbc", "sms", "gg", "col"};
+char emu_name[20][6] = {"Nintendo", "Gameboy", "Gameboy Color", "Sega Master System", "Game Gear", "Coleco Vision"};
 int emu_slot[6] = {1, 2, 2, 3, 3, 3};
 char *base_path = "/sd/roms/";
 extern uint16_t fb[];
@@ -171,7 +172,6 @@ static void drawHomeScreen()
         UG_SetBackcolor(C_BLACK);
     }
     UG_PutString(25, 12, volStr);
-    ui_flush();
     battery_level_read(&bat_state);
     drawVolume(volume);
     drawBattery(bat_state.percentage);
@@ -577,7 +577,7 @@ void app_main(void)
             char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
             strcpy(path, base_path);
             strcat(path, emu_dir[menuItem]);
-            char *filename = ui_file_chooser(path, ext, 0, "Select Game Title");
+            char *filename = ui_file_chooser(path, ext, 0, emu_name[menuItem]);
             if (filename)
             {
                 set_rom_name_settings(filename);
@@ -612,7 +612,7 @@ void app_main(void)
         {
             battery_level_read(&bat_state);
             drawBattery(bat_state.percentage);
-            //doRefresh = 1;
+            doRefresh = 1;
             chrg_st = getChargeStatus();
         }
 

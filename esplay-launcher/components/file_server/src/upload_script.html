@@ -1,0 +1,162 @@
+<head>
+    <style>
+          html, body {
+              -moz-user-select: none;
+              -webkit-user-select: none;
+              user-select: none;
+              margin: 0;
+              padding: 0;
+              width: 100%;
+              min-height: 100%;
+          }
+          html {
+              font-family: sans-serif;
+              font-size: 1.5vw;
+          }
+          body {
+              color: #fff;
+              background-color: rgba(25, 31, 41, 1);
+              background-image: linear-gradient(to bottom, rgba(25, 31, 41, 1) 0%, rgba(233, 65, 82, 1) 100%);
+              background-size: cover;
+              background-repeat: repeat-x;
+              text-align: center;
+              padding: 1rem 0;
+          }
+
+          label {
+              font-size: 0.8rem;
+          }
+
+          a {
+              color: #ed555d;
+              text-decoration: none;
+          }
+
+          a:hover {
+              text-decoration: underline;
+          }
+
+          h2 {
+              font-size: 1.66rem;
+              color: #ed555d;
+          }
+
+
+          .t {
+              font-size: 1rem;
+              width: 100%;
+              border: 1px solid grey;
+              border-collapse: collapse;
+              padding: 1em;
+          }
+
+          .t td,
+          .t th {
+              border: 1px solid #000;
+              padding: 0.5em;
+          }
+
+          .t td:nth-child(2) {
+              color: #fef2be;
+          }
+
+          .t td:nth-child(3) {
+              color: #fef2be;
+          }
+
+          .t td:nth-child(3) a {
+              text-decoration: none;
+          }
+              #main {
+              background-color: #1a1f28;
+              width: 85%;
+              margin: 2em auto;
+              padding: 2em;
+              padding-bottom: 2.2em;
+              box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
+              text-align: left;
+          }
+            </style>
+</head>
+<div id="main">
+<table class="fixed" border="0">
+  <col width="1000px" /><col width="500px" />
+  <tr><td>
+      <h2>ESP32 File Server</h2>
+  </td><td>
+      <table border="0">
+          <tr>
+              <td>
+                  <label for="newfile">Upload a file</label>
+              </td>
+              <td colspan="2">
+                  <input id="newfile" type="file" onchange="setpath()" style="width:100%;">
+              </td>
+          </tr>
+          <tr>
+              <td>
+                  <label for="filepath">Set path on server</label>
+              </td>
+              <td>
+                  <input id="filepath" type="text" style="width:100%;">
+              </td>
+              <td>
+                  <button id="upload" type="button" onclick="upload()">Upload</button>
+              </td>
+          </tr>
+      </table>
+  </td></tr>
+</table>
+<a href="/">Home</a>
+<br>
+<script>
+    function setpath() {
+    var pathName = location.pathname;
+    var default_path = pathName.replace(/^\/+/g, '') + "/" + document.getElementById("newfile").files[0].name;
+    document.getElementById("filepath").value = default_path;
+    }
+    function upload() {
+    var filePath = document.getElementById("filepath").value;
+    var upload_path = "/upload/" + filePath;
+    var fileInput = document.getElementById("newfile").files;
+
+    /* Max size of an individual file. Make sure this
+    * value is same as that set in file_server.c */
+    var MAX_FILE_SIZE = 20*1024*1024;
+    var MAX_FILE_SIZE_STR = "20MB";
+
+    if (fileInput.length == 0) {
+        alert("No file selected!");
+    } else if (filePath.length == 0) {
+        alert("File path on server is not set!");
+    } else if (filePath[filePath.length-1] == '/') {
+        alert("File name not specified after path!");
+    } else if (fileInput[0].size > MAX_FILE_SIZE) {
+        alert("File size must be less than " + MAX_FILE_SIZE_STR + "!");
+    } else {
+        document.getElementById("newfile").disabled = true;
+        document.getElementById("filepath").disabled = true;
+        document.getElementById("upload").disabled = true;
+
+        var file = fileInput[0];
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (xhttp.readyState == 4) {
+                if (xhttp.status == 200) {
+                    document.open();
+                    document.write(xhttp.responseText);
+                    document.close();
+                } else if (xhttp.status == 0) {
+                    alert("Server closed the connection abruptly!");
+                    location.reload()
+                } else {
+                    alert(xhttp.status + " Error!\n" + xhttp.responseText);
+                    location.reload()
+                }
+            }
+        };
+        xhttp.open("POST", upload_path, true);
+        xhttp.send(file);
+    }
+    }
+</script>

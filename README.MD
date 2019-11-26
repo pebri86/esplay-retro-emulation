@@ -32,7 +32,7 @@ Find mkfw tool in the base firmware in my repository.
 
 Also to get compiling correctly you need ffmpeg installed on your system and included in the PATH Environment.
 
-edit your path (to match your location installation of esp-idf and clone of this repo). and simply execute mkrelease.sh
+edit mkrelease.sh to match your setup path(to match your location installation of esp-idf and clone of this repo). and simply execute mkrelease.sh
 then you'll find esplay-retro-emu.fw in the root of repo.
 
 run mkrelease.sh to compile and make an .fw file that could be flashed by base firmware bootloader. Place .fw file in esplay/firmware folder on sdcard, power on esplay device while press B button until bootloader screen appear. select .fw then A -> Start to flash firmware.

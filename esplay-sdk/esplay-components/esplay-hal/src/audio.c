@@ -74,11 +74,12 @@ void audio_submit(short *stereoAudioBuffer, int frameCount)
         for (short i = 0; i < currentAudioSampleCount; ++i)
         {
             int sample = stereoAudioBuffer[i] * Volume;
+            /*
             if (sample > 32767)
                 sample = 32767;
             else if (sample < -32767)
                 sample = -32767;
-
+            */
             stereoAudioBuffer[i] = (short)sample;
         }
 

@@ -267,3 +267,74 @@ void input_gamepad_terminate()
     i2c_driver_delete(i2c_port);
     input_task_is_running = false;
 }
+
+uint16_t keypad_sample(void)
+{
+	uint16_t sample = 0;
+
+	uint8_t i2c_data = i2c_keypad_read();
+
+	if (((1<<0)&i2c_data) == 0) {
+		sample |= KEYPAD_START;
+	}
+
+	if (((1<<1)&i2c_data) == 0) {
+		sample |= KEYPAD_SELECT;
+	}
+
+	if (((1<<2)&i2c_data) == 0) {
+		sample |= KEYPAD_UP;
+	}
+
+	if (((1<<3)&i2c_data) == 0) {
+		sample |= KEYPAD_DOWN;
+	}
+
+	if (((1<<4)&i2c_data) == 0) {
+		sample |= KEYPAD_LEFT;
+	}
+
+	if (((1<<5)&i2c_data) == 0) {
+		sample |= KEYPAD_RIGHT;
+	}
+
+	if (((1<<6)&i2c_data) == 0) {
+		sample |= KEYPAD_A;
+	}
+
+	if (((1<<7)&i2c_data) == 0) {
+		sample |= KEYPAD_B;
+	}
+
+	if (!gpio_get_level(MENU)) {
+		sample |= KEYPAD_MENU;
+	}
+
+	if (!gpio_get_level(L_BTN)) {
+		sample |= KEYPAD_L;
+	}
+
+	if (!gpio_get_level(R_BTN)) {
+		sample |= KEYPAD_R;
+	}
+
+	return sample;
+}
+
+uint16_t keypad_debounce(uint16_t sample, uint16_t *changes)
+{
+	static uint16_t state, cnt0, cnt1;
+	uint16_t delta, toggle;
+
+	delta = sample ^ state;
+	cnt1 = (cnt1 ^ cnt0) & delta;
+	cnt0 = ~cnt0 & delta;
+
+	toggle = delta & ~(cnt0 | cnt1);
+	state ^= toggle;
+	if (changes) {
+		*changes = toggle;
+	}
+
+	return state;
+}

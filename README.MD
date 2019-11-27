@@ -11,8 +11,10 @@ The main feature of this projects is bundled as follow:
 - GNUBoy for play GameBoy and GameBoy Color
 - SMSPlusGX could play Sega Master System, Game Gear and Coleco Vision ROM
 - In-Game menu on Emulator
-- <b>NEW!</b> Built-in Audio Player for playing music, support WAV, MP3, OGG, and FLAC audio files
+- <b>NEW!</b> Built-in Audio Player for playing music, support WAV, MP3, OGG, and FLAC audio files.
 - Esplay launcher, new code base using UGUI library
+
+Place your Audio files that supported (mp3, flac, wav and ogg) to audio folder on the root of sdcard, if folder not exist just created one and place audio files on them.
 
 ![esplay-audio1](https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/staging/docs/esplay_audio1.jpg)
 

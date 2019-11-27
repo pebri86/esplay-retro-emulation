@@ -14,18 +14,20 @@
 
 #include "settings.h"
 #include "gamepad.h"
+#include "event.h"
 #include "display.h"
 #include "audio.h"
 #include "power.h"
 #include "sdcard.h"
 #include "esplay-ui.h"
 #include "ugui.h"
-static const char gfxTile[]={
-#include "gfxTile.inc"
-};
+#include "graphics.h"
+#include "audio_player.h"
+#include "file_ops.h"
 
 #define SCROLLSPD 64
-#define NUM_EMULATOR 6
+#define NUM_EMULATOR 7
+#define AUDIO_FILE_PATH "/sd/audio"
 
 char emu_dir[6][10] = {"nes", "gb", "gbc", "sms", "gg", "col"};
 char emu_name[6][20] = {"Nintendo", "Gameboy", "Gameboy Color", "Sega Master System", "Game Gear", "Coleco Vision"};
@@ -36,90 +38,12 @@ int num_menu = 5;
 char menu_text[5][20] = {"WiFi AP *", "Volume", "Brightness", "Upscaler", "Quit"};
 char scaling_text[3][20] = {"Native", "Normal", "Stretch"};
 uint8_t wifi_en;
-int fullCtr=0;
-int fixFull=0;
-
 
 esp_err_t start_file_server(const char *base_path);
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
     return ESP_OK;
-}
-
-static void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
-{
-    uint16_t *fb = ui_get_fb();
-    uint16_t *gfx = (uint16_t*)gfxTile;
-    int x,y,i;
-    if (dx < 0)
-    {
-        sx -= dx;
-        sw += dx;
-        dx = 0;
-    }
-    if ((dx + sw) > 320)
-    {
-        sw -= ((dx + sw) - 320);
-        dx = 320 - sw;
-    }
-    if (dy < 0)
-    {
-        sy -= dy;
-        sh += dy;
-        dy = 0;
-    }
-    if ((dy + sh) > 240)
-    {
-        sh -= ((dy + sh) - 240);
-        dy = 240 - sh;
-    }
-    for (y=0; y<sh; y++) {
-		for (x=0; x<sw; x++) {
-			i=gfx[(sy+y)*320+(sx+x)];
-			fb[(dy+y)*320+(dx+x)]=i;
-		}
-	}
-}
-
-static void drawBattery(int batPercent)
-{
-    charging_state st = getChargeStatus();
-    if (st == CHARGING)
-    {
-        renderGraphics(320 - 25, 0, 24 * 5, 0, 24, 24);
-        fullCtr=0;
-    }
-    if (st == FULL_CHARGED || fixFull)
-        fullCtr++;
-
-    if (fullCtr == 32)
-        fixFull = 1;
-
-    if (fixFull)
-        renderGraphics(320 - 25, 0, 24 * 6, 0, 24, 24);
-
-    if (st == NO_CHRG)
-    {
-        if (batPercent > 75 && batPercent <= 100)
-            renderGraphics(320 - 25, 0, 24 * 4, 0, 24, 24);
-        else if (batPercent > 50 && batPercent <= 75)
-            renderGraphics(320 - 25, 0, 24 * 3, 0, 24, 24);
-        else if (batPercent > 25 && batPercent <= 50)
-            renderGraphics(320 - 25, 0, 24 * 2, 0, 24, 24);
-        else if (batPercent > 0 && batPercent <= 25)
-            renderGraphics(320 - 25, 0, 24 * 1, 0, 24, 24);
-        else if (batPercent == 0)
-            renderGraphics(320 - 25, 0, 0, 0, 24, 24);
-    }
-}
-
-static void drawVolume(int volume)
-{
-    if (volume == 0)
-        renderGraphics(0, 0, 24 * 9, 0, 24, 24);
-    else
-        renderGraphics(0, 0, 24 * 8, 0, 24, 24);
 }
 
 static void drawHomeScreen()
@@ -249,9 +173,9 @@ static void showOptionPage(int selected)
     UG_SetForecolor(C_RED);
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 30, "* restart required");
-    esp_app_desc_t * desc = esp_ota_get_app_description();
+    esp_app_desc_t *desc = esp_ota_get_app_description();
     char idfVer[512];
-    sprintf(idfVer,"IDF %s", desc->idf_ver);
+    sprintf(idfVer, "IDF %s", desc->idf_ver);
     UG_SetForecolor(C_WHITE);
     UG_SetBackcolor(C_BLACK);
     UG_PutString(0, 240 - 72, desc->project_name);
@@ -432,7 +356,10 @@ void app_main(void)
     nvs_flash_init();
     esplay_system_init();
 
+    audio_init(44100);
+
     gamepad_init();
+    event_init();
 
     // Display
     display_prepare();
@@ -492,7 +419,7 @@ void app_main(void)
     }
     else
     {
-        printf("\nAP Disabled, enabled wifi to use File Manager");
+        printf("\nAP Disabled, enabled wifi to use File Manager\n");
     }
 
     drawHomeScreen();
@@ -500,7 +427,7 @@ void app_main(void)
     int prevItem = 0;
     int scroll = 0;
     int doRefresh = 1;
-	int oldArrowsTick = -1;
+    int oldArrowsTick = -1;
     int lastUpdate = 0;
     charging_state chrg_st = getChargeStatus();
     input_gamepad_state prevKey;
@@ -544,49 +471,79 @@ void app_main(void)
         else
         {
             int update = 1;
-            if(update!=lastUpdate)
+            if (update != lastUpdate)
             {
-                char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
-                strcpy(path, base_path);
-                strcat(path, emu_dir[menuItem]);
-                int count = sdcard_get_files_count(path);
-                char text[320];
-                sprintf(text, "%i games available", count);
-                UG_FillFrame(0, 64, 319, 76, C_BLACK);
-                UG_PutString((320/2) - (strlen(text) * 9 / 2), 64, text);
-                renderGraphics(0, 78, 0, (56 * menuItem) + 24, 320, 56);
-                lastUpdate = update;
+                if (menuItem < 6)
+                {
+                    char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
+                    strcpy(path, base_path);
+                    strcat(path, emu_dir[menuItem]);
+                    int count = sdcard_get_files_count(path);
+                    char text[320];
+                    sprintf(text, "%i games available", count);
+                    UG_FillFrame(0, 64, 319, 76, C_BLACK);
+                    UG_PutString((320 / 2) - (strlen(text) * 9 / 2), 64, text);
+                    renderGraphics(0, 78, 0, (56 * menuItem) + 24, 320, 56);
+                }
+                else
+                {
+                    UG_FillFrame(0, 64, 319, 76, C_BLACK);
+                    renderGraphics(0, 78, 0, (56 * menuItem) + 24, 320, 56);
+                }
+
+                    lastUpdate = update;
+
             }
             //Render arrows
-			int t=xTaskGetTickCount()/(400/portTICK_PERIOD_MS);
-			t=(t&1);
-			if (t!=oldArrowsTick) {
-				doRefresh=1;
-				renderGraphics(10, 90, t?0:32, 359, 32, 23);
-				renderGraphics(276, 90, t?64:96, 359, 32, 23);
-				oldArrowsTick=t;
-			}
+            int t = xTaskGetTickCount() / (400 / portTICK_PERIOD_MS);
+            t = (t & 1);
+            if (t != oldArrowsTick)
+            {
+                doRefresh = 1;
+                renderGraphics(10, 90, t ? 0 : 32, 416, 32, 23);
+                renderGraphics(276, 90, t ? 64 : 96, 416, 32, 23);
+                oldArrowsTick = t;
+            }
         }
         if (!prevKey.values[GAMEPAD_INPUT_A] && joystick.values[GAMEPAD_INPUT_A])
         {
-            char ext[4];
-            strcpy(ext, ".");
-            strcat(ext, emu_dir[menuItem]);
-
-            char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
-            strcpy(path, base_path);
-            strcat(path, emu_dir[menuItem]);
-            char *filename = ui_file_chooser(path, ext, 0, emu_name[menuItem]);
-            if (filename)
+            if (menuItem < 6)
             {
-                set_rom_name_settings(filename);
-                system_application_set(emu_slot[menuItem]);
-                ui_clear_screen();
-                ui_flush();
-                display_show_hourglass();
-                esp_restart();
+                char ext[4];
+                strcpy(ext, ".");
+                strcat(ext, emu_dir[menuItem]);
+
+                char *path = malloc(strlen(base_path) + strlen(emu_dir[menuItem]) + 1);
+                strcpy(path, base_path);
+                strcat(path, emu_dir[menuItem]);
+                char *filename = ui_file_chooser(path, ext, 0, emu_name[menuItem]);
+                if (filename)
+                {
+                    set_rom_name_settings(filename);
+                    system_application_set(emu_slot[menuItem]);
+                    ui_clear_screen();
+                    ui_flush();
+                    display_show_hourglass();
+                    esp_restart();
+                }
+                free(path);
             }
-            free(path);
+            else
+            {
+                Entry *new_entries;
+
+                int n_entries = fops_list_dir(&new_entries, AUDIO_FILE_PATH);
+                audio_player((AudioPlayerParam){new_entries, n_entries, 0, AUDIO_FILE_PATH, true});
+
+                fops_free_entries(&new_entries, n_entries);
+                // TODO : For some reason after audio_player close it won't play anymore so just restart for now
+                esp_restart();
+                /*
+                drawHomeScreen();
+                lastUpdate = 0;
+                doRefresh = 1;
+                */
+            }
 
             // B Pressed instead of A
             drawHomeScreen();

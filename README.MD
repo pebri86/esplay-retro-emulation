@@ -11,6 +11,7 @@ The main feature of this projects is bundled as follow:
 - GNUBoy for play GameBoy and GameBoy Color
 - SMSPlusGX could play Sega Master System, Game Gear and Coleco Vision ROM
 - In-Game menu on Emulator
+- <b>NEW!</b> Built-in Audio Player for playing music, support WAV, MP3, OGG, and FLAC audio files
 - Esplay launcher, new code base using UGUI library
 
 Launcher Option

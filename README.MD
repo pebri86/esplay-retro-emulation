@@ -53,6 +53,11 @@ DONATION
 The software are free to use but we also accept small donation to make the project lives and continue development
 <a href="https://www.paypal.me/pebri86/1.99USD" target="_blank"><img src="https://raw.githubusercontent.com/pebri86/esplay-retro-emulation/staging/docs/donate.jpeg" alt="Donate" /></a>
 
+Source Author and Special Thanks
+-------------------------
+- Audio Player based on [ogo-shell] projects by [Passpartout], thank you very much for sharing awesome code.
+- All emulator based on [Go-Play] for Odroid-go by [OtherCrashOverride].
+
 All Contributors
 ------------
 Thanks to contribute your work for this project.
@@ -60,6 +65,10 @@ Thanks to contribute your work for this project.
 
 
 [32teeth]:https://github.com/32teeth
+[ogo-shell]:https://github.com/Paspartout/ogo-shell
+[Paspartout]:https://github.com/Paspartout
+[OtherCrashOverride]:https://github.com/OtherCrashOverride
+[Go-Play]:https://github.com/OtherCrashOverride/go-play
 [esplay-micro-hardware]: https://github.com/pebri86/esplay_micro_hardware
 [Makerfabs]: https://www.makerfabs.com/esplay-micro.html
 [hackaday]: https://hackaday.io/project/166707-esplay-micro

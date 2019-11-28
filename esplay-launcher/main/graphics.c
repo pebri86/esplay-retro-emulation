@@ -7,9 +7,6 @@ static const char gfxTile[]={
 #include "gfxTile.inc"
 };
 
-int fullCtr=0;
-int fixFull=0;
-
 void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
 {
     uint16_t *fb = ui_get_fb();
@@ -49,19 +46,9 @@ void drawBattery(int batPercent)
 {
     charging_state st = getChargeStatus();
     if (st == CHARGING)
-    {
         renderGraphics(320 - 25, 0, 24 * 5, 0, 24, 24);
-        fullCtr=0;
-    }
-    if (st == FULL_CHARGED || fixFull)
-        fullCtr++;
-
-    if (fullCtr == 32)
-        fixFull = 1;
-
-    if (fixFull)
+    if (st == FULL_CHARGED)
         renderGraphics(320 - 25, 0, 24 * 6, 0, 24, 24);
-
     if (st == NO_CHRG)
     {
         if (batPercent > 75 && batPercent <= 100)

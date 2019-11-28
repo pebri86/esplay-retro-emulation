@@ -357,6 +357,7 @@ void app_main(void)
     esplay_system_init();
 
     audio_init(44100);
+    audio_amp_disable();
 
     gamepad_init();
     event_init();

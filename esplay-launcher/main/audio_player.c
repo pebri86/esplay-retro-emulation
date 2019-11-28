@@ -190,6 +190,7 @@ static PlayerResult handle_cmd(PlayerState *const state, const AudioInfo info, c
 		state->playing = !state->playing;
 		if (state->playing) {
 			audio_init((int)info.sample_rate);
+			audio_amp_disable();
 		} else {
 			audio_terminate();
 		}
@@ -199,6 +200,7 @@ static PlayerResult handle_cmd(PlayerState *const state, const AudioInfo info, c
 		if (state->playing)
 			audio_terminate();
 		audio_init((int)info.sample_rate);
+		audio_amp_disable();
 		push_audio_event(AudioPlayerEventStateChanged);
 		break;
 	case PlayerCmdToggleLoopMode:
@@ -252,6 +254,7 @@ static PlayerResult play_song(const Song *const song)
 	}
 
 	audio_init((int)info.sample_rate);
+	audio_amp_disable();
 
 	int n_frames = 0;
 	state->playing = true;

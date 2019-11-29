@@ -537,7 +537,9 @@ _error:
 
 void save_sram()
 {
-    char* romPath = get_rom_name_settings();
+    char* romPath = NULL;
+    size_t  len = 0;
+    settings_load_str(SettingRomPath, romPath, len);
     if (romPath)
     {
         esp_err_t r = sdcard_open(SD_BASE_PATH);
@@ -568,7 +570,9 @@ void save_sram()
 
 void load_sram()
 {
-    char* romName = get_rom_name_settings();
+    char* romName = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, romName, len);
     if (romName)
     {
         esp_err_t r = sdcard_open(SD_BASE_PATH);

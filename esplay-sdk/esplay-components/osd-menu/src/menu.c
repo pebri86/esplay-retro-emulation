@@ -74,9 +74,9 @@ int showMenu()
     {
       int v = 0;
       if (menuItem == SCN_VOLUME)
-        v = get_volume_settings();
+        settings_load(SettingAudioVolume, &v);
       if (menuItem == SCN_BRIGHT)
-        v = get_backlight_settings();
+        settings_load(SettingBacklight, &v);
       if (!lastKey.values[GAMEPAD_INPUT_LEFT] && key.values[GAMEPAD_INPUT_LEFT])
         v -= 5;
       if (!lastKey.values[GAMEPAD_INPUT_RIGHT] && key.values[GAMEPAD_INPUT_RIGHT])
@@ -87,8 +87,8 @@ int showMenu()
           v = 0;
         if (v > 100)
           v = 100;
-        set_volume_settings(v);
         audio_volume_set(v);
+        settings_save(SettingAudioVolume, v);
         vol=v;
         doRefresh = 1;
       }
@@ -98,7 +98,7 @@ int showMenu()
           v = 1;
         if (v > 100)
           v = 100;
-        set_backlight_settings(v);
+        settings_save(SettingBacklight, v);
         set_display_brightness(v);
         br=v;
         doRefresh = 1;
@@ -161,12 +161,13 @@ int showMenu()
 
     if (doRefresh)
     {
-      int v = get_volume_settings();
+      int v;
+      settings_load(SettingAudioVolume, &v);
       if (top==0)
         renderMenu(141, 15, 0, 8, 65, 8);
       renderMenu(141, 15, 0, 0, (v * 65) / 100, 8);
 
-      v = get_backlight_settings();
+      settings_load(SettingBacklight, &v);
       if (top==30)
         renderMenu(141, 45, 0, 8, 65, 8);
       renderMenu(141, 45, 0, 0, (v * 65) / 100, 8);

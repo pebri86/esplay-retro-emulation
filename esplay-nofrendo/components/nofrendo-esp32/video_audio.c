@@ -115,7 +115,9 @@ static int osd_init_sound(void)
     audio_frame = malloc(4 * DEFAULT_FRAGSIZE);
     //audio_init(DEFAULT_SAMPLERATE);
     audio_callback = NULL;
-    audio_volume_set(get_volume_settings());
+    int volume;
+    settings_load(SettingAudioVolume, &volume);
+    audio_volume_set(volume);
 
     return 0;
 }
@@ -247,7 +249,7 @@ esplay_scale_option opt;
 static void videoTask(void *arg)
 {
     bitmap_t *bmp = NULL;
-    opt = get_scale_option_settings();
+    settings_load(SettingScaleMode, &opt);
     while (1)
     {
         xQueuePeek(vidQueue, &bmp, portMAX_DELAY);

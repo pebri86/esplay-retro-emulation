@@ -44,7 +44,7 @@ int app_main(void)
 {
     printf("nesemu (%s-%s).\n", COMPILEDATE, GITREV);
 
-    nvs_flash_init();
+    settings_init();
 
     esplay_system_init();
 
@@ -54,7 +54,9 @@ int app_main(void)
 
     char* fileName;
 
-    char* romName = get_rom_name_settings();
+    char* romName = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, romName, len);
     if (romName)
     {
         fileName = system_util_GetFileName(romName);
@@ -71,15 +73,17 @@ int app_main(void)
     int startHeap = esp_get_free_heap_size();
     printf("A HEAP:0x%x\n", startHeap);
 
-
-    display_init();
-
     // Joystick.
     gamepad_init();
 
+    // display
+    display_init();
     display_prepare();
 
-    set_display_brightness(get_backlight_settings());
+    // display brightness
+    int brightness;
+    settings_load(SettingBacklight, &brightness);
+    set_display_brightness(brightness);
 
     // battery
     battery_level_init();
@@ -128,7 +132,8 @@ int app_main(void)
     }
 
     // Load ROM
-    char* romPath = get_rom_name_settings();
+    char* romPath = NULL;
+    settings_load_str(SettingRomPath, romPath, len);
     if (!romPath)
     {
         printf("osd_getromdata: Reading from flash.\n");

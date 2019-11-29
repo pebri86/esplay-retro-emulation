@@ -6,15 +6,18 @@
 /*********************
  *      INCLUDES
  *********************/
-#include "settings.h"
+#include <settings.h>
 
+
+#include <nvs.h>
 #include "nvs_flash.h"
-#include "esp_heap_caps.h"
+#include <assert.h>
+#include <esp_heap_caps.h>
 
-#include "esp_partition.h"
-#include "esp_ota_ops.h"
+#include <esp_partition.h>
+#include <esp_ota_ops.h>
 
-#include "string.h"
+#include <string.h>
 /*********************
  *      DEFINES
  *********************/
@@ -22,6 +25,10 @@
 /**********************
  *      TYPEDEFS
  **********************/
+typedef enum KeyType {
+	TypeInt,
+	TypeStr,
+} KeyType;
 
 /**********************
  *  STATIC PROTOTYPES
@@ -30,12 +37,15 @@
 /**********************
  *  STATIC VARIABLES
  **********************/
-static const char *NvsNamespace = "esplay";
-static const char *NvsKey_Backlight = "backlight";
-static const char *NvsKey_RomName = "rom_name";
-static const char *NvsKey_Volume = "volume";
-static const char *NvsKey_Scale = "scale";
-static const char *NvsKey_Wifi = "wifi";
+static nvs_handle handle;
+
+static KeyType settings_types[SettingMax] = {
+    TypeInt, TypeInt, TypeInt, TypeStr, TypeInt, TypeInt,
+};
+
+static char *settings_keys[SettingMax] = {
+    "volume", "backlight", "playmode", "rom_name", "scale", "wifi",
+};
 
 /**********************
  *      MACROS
@@ -44,6 +54,78 @@ static const char *NvsKey_Wifi = "wifi";
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
+// Initalize settings
+int settings_init(void)
+{
+	esp_err_t err = nvs_flash_init();
+	if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		// NVS partition was truncated and needs to be erased
+		// Retry nvs_flash_init
+		if (nvs_flash_erase() != ESP_OK) {
+			return -1;
+		}
+		err = nvs_flash_init();
+	}
+	if (err != ESP_OK) {
+		return -1;
+	}
+
+	if (nvs_open("ogo-shell", NVS_READWRITE, &handle) != ESP_OK) {
+		return -1;
+	}
+
+	return 0;
+}
+
+/// Initalize settings
+void settings_deinit(void)
+{
+	nvs_close(handle);
+	nvs_flash_deinit();
+}
+
+/// Load setting.
+/// Return 0 if loaded, false if not found
+int settings_load(Setting setting, int32_t *value_out)
+{
+	assert(setting < SettingMax && setting >= 0);
+	assert(settings_types[setting] == TypeInt);
+	return nvs_get_i32(handle, settings_keys[setting], value_out);
+}
+
+/// Save setting.
+/// Return 0 if saving was sucessfull
+int settings_save(Setting setting, int32_t value)
+{
+	assert(setting < SettingMax && setting >= 0);
+	assert(settings_types[setting] == TypeInt);
+	return nvs_set_i32(handle, settings_keys[setting], value);
+}
+
+/// Load string setting.
+/// Return 0 if saving was sucessfull
+int settings_load_str(Setting setting, char *value_out, size_t value_len)
+{
+	size_t len;
+	assert(setting < SettingMax && setting >= 0);
+	assert(settings_types[setting] == TypeStr);
+	nvs_get_str(handle, settings_keys[setting], NULL, &len);
+	if (len > value_len) {
+		return -1;
+	}
+	return nvs_get_str(handle, settings_keys[setting], value_out, &len);
+}
+
+/// Save string setting.
+/// Return 0 if saving was sucessfull
+int settings_save_str(Setting setting, const char *value)
+{
+	assert(setting < SettingMax && setting >= 0);
+	assert(settings_types[setting] == TypeStr);
+	return nvs_set_str(handle, settings_keys[setting], value);
+}
+
+/// Boot application from selected partition slot
 void system_application_set(int slot)
 {
     const esp_partition_t *partition = esp_partition_find_first(
@@ -61,53 +143,7 @@ void system_application_set(int slot)
     }
 }
 
-int32_t get_backlight_settings()
-{
-    // TODO: Move to header
-    int result = 100;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    err = nvs_get_i32(my_handle, NvsKey_Backlight, &result);
-    if (err == ESP_OK)
-    {
-        printf("%s: value=%d\n", __func__, result);
-    }
-
-    // Close
-    nvs_close(my_handle);
-
-    return result;
-}
-
-void set_backlight_settings(int32_t value)
-{
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Try saving ... \n");
-
-    // Read
-    err = nvs_set_i32(my_handle, NvsKey_Backlight, value);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Committing updates in NVS ... ");
-    err = nvs_commit(my_handle);
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
-
-    // Close
-    nvs_close(my_handle);
-}
-
+/// Utils function get filename from given path
 char *system_util_GetFileName(const char *path)
 {
     int length = strlen(path);
@@ -144,6 +180,7 @@ char *system_util_GetFileName(const char *path)
     return result;
 }
 
+/// Utils function get file extension from given path
 char *system_util_GetFileExtenstion(const char *path)
 {
     // Note: includes '.'
@@ -180,6 +217,7 @@ char *system_util_GetFileExtenstion(const char *path)
     return result;
 }
 
+/// Utils function get filename from given path without extension
 char *system_util_GetFileNameWithoutExtension(const char *path)
 {
     char *fileName = system_util_GetFileName(path);
@@ -215,290 +253,6 @@ char *system_util_GetFileNameWithoutExtension(const char *path)
     free(fileName);
 
     //printf("GetFileNameWithoutExtension: result='%s'\n", result);
-
-    return result;
-}
-
-char *get_rom_name_settings()
-{
-    char *result = NULL;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    size_t required_size;
-    err = nvs_get_str(my_handle, NvsKey_RomName, NULL, &required_size);
-    if (err == ESP_OK)
-    {
-        char *value = malloc(required_size);
-        if (!value)
-            abort();
-
-        err = nvs_get_str(my_handle, NvsKey_RomName, value, &required_size);
-        if (err != ESP_OK)
-            abort();
-
-        result = value;
-
-        printf("%s: value='%s'\n", __func__, value);
-    }
-
-    // Close
-    nvs_close(my_handle);
-
-    return result;
-}
-
-void set_rom_name_settings(char *value)
-{
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Write key
-    err = nvs_set_str(my_handle, NvsKey_RomName, value);
-    if (err != ESP_OK)
-        abort();
-
-    // Close
-    nvs_close(my_handle);
-}
-
-int get_volume_settings()
-{
-    // TODO: Move to header
-    int result = 25;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    err = nvs_get_i8(my_handle, NvsKey_Volume, &result);
-    if (err == ESP_OK)
-    {
-        printf("%s: value=%d\n", __func__, result);
-    }
-
-    // Close
-    nvs_close(my_handle);
-
-    return result;
-}
-
-void set_volume_settings(int value)
-{
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Try saving ... \n");
-
-    // Read
-    err = nvs_set_i8(my_handle, NvsKey_Volume, value);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Committing updates in NVS ... ");
-    err = nvs_commit(my_handle);
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
-
-    // Close
-    nvs_close(my_handle);
-}
-
-esplay_scale_option get_scale_option_settings()
-{
-    // TODO: Move to header
-    int result = SCALE_FIT;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    err = nvs_get_i8(my_handle, NvsKey_Scale, &result);
-    if (err == ESP_OK)
-    {
-        printf("%s: value=%d\n", __func__, result);
-    }
-
-    // Close
-    nvs_close(my_handle);
-
-    return result;
-}
-
-void set_scale_option_settings(esplay_scale_option scale)
-{
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Try saving ... \n");
-
-    // Read
-    err = nvs_set_i8(my_handle, NvsKey_Scale, scale);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Committing updates in NVS ... ");
-    err = nvs_commit(my_handle);
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
-
-    // Close
-    nvs_close(my_handle);
-}
-
-void set_wifi_settings(uint8_t value)
-{
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Try saving ... \n");
-
-    // Read
-    err = nvs_set_u8(my_handle, NvsKey_Wifi, value);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Committing updates in NVS ... ");
-    err = nvs_commit(my_handle);
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
-
-    // Close
-    nvs_close(my_handle);
-}
-uint8_t get_wifi_settings()
-{
-    // TODO: Move to header
-    int result = 1;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    err = nvs_get_u8(my_handle, NvsKey_Wifi, &result);
-    if (err == ESP_OK)
-    {
-        printf("%s: value=%d\n", __func__, result);
-    }
-
-    // Close
-    nvs_close(my_handle);
-
-    return result;
-}
-
-void set_last_emu_settings(uint8_t value)
-{
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Try saving ... \n");
-
-    // Read
-    err = nvs_set_u8(my_handle, "emu", value);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Committing updates in NVS ... ");
-    err = nvs_commit(my_handle);
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
-
-    // Close
-    nvs_close(my_handle);
-}
-
-uint8_t get_last_emu_settings()
-{
-    // TODO: Move to header
-    int result = 0;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    err = nvs_get_u8(my_handle, "emu", &result);
-    if (err == ESP_OK)
-    {
-        printf("%s: value=%d\n", __func__, result);
-    }
-
-    // Close
-    nvs_close(my_handle);
-
-    return result;
-}
-
-void set_last_rom_settings(uint8_t value)
-{
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Try saving ... \n");
-
-    // Read
-    err = nvs_set_u8(my_handle, "romsel", value);
-    if (err != ESP_OK)
-        abort();
-
-    printf("Committing updates in NVS ... ");
-    err = nvs_commit(my_handle);
-    printf((err != ESP_OK) ? "Failed!\n" : "Done\n");
-
-    // Close
-    nvs_close(my_handle);
-}
-
-uint8_t get_last_rom_settings()
-{
-     // TODO: Move to header
-    int result = 0;
-
-    // Open
-    nvs_handle my_handle;
-    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-        abort();
-
-    // Read
-    err = nvs_get_u8(my_handle, "romsel", &result);
-    if (err == ESP_OK)
-    {
-        printf("%s: value=%d\n", __func__, result);
-    }
-
-    // Close
-    nvs_close(my_handle);
 
     return result;
 }

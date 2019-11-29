@@ -155,7 +155,7 @@ esplay_scale_option scale_opt;
 void videoTask(void *arg)
 {
     esp_err_t ret;
-    scale_opt = get_scale_option_settings();
+    settings_load(SettingScaleMode, &scale_opt);
     videoTaskIsRunning = true;
 
     uint16_t *param;
@@ -275,7 +275,9 @@ void audioTask(void *arg)
 static void SaveState()
 {
     // Save sram
-    char *romPath = get_rom_name_settings();
+    char *romPath = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, romPath, len);
     if (romPath)
     {
         char *fileName = system_util_GetFileName(romPath);
@@ -321,7 +323,9 @@ static void SaveState()
 
 static void LoadState(const char *cartName)
 {
-    char *romName = get_rom_name_settings();
+    char *romName = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, romName, len);
     if (romName)
     {
         char *fileName = system_util_GetFileName(romName);
@@ -447,7 +451,7 @@ void app_main(void)
 {
     printf("gnuboy (%s-%s).\n", COMPILEDATE, GITREV);
 
-    nvs_flash_init();
+    settings_init();
 
     esplay_system_init();
 
@@ -459,8 +463,14 @@ void app_main(void)
     display_init();
 
     // set brightness
-    set_display_brightness(get_backlight_settings());
-    audio_volume_set(get_volume_settings());
+    int brightness = 50;
+    settings_load(SettingBacklight, &brightness);
+    set_display_brightness(brightness);
+
+    // volume
+    int volume = 25;
+    settings_load(SettingAudioVolume, &volume);
+    audio_volume_set(volume);
 
     // battery
     battery_level_init();

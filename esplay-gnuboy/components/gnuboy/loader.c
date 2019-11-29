@@ -199,7 +199,9 @@ int rom_load()
 
 	data = (void*)0x3f800000;
 
-	char* romPath = get_rom_name_settings();
+	char* romPath = NULL;
+	size_t length = 0;
+	settings_load_str(SettingRomPath, romPath, length);
 	if (!romPath)
 	{
 		printf("loader: Reading from flash.\n");

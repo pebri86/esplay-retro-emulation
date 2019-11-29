@@ -53,7 +53,7 @@ esplay_scale_option opt;
 void videoTask(void *arg)
 {
     uint8_t *param;
-    opt = get_scale_option_settings();
+    settings_load(SettingScaleMode, &opt);
     videoTaskIsRunning = true;
 
     const bool isGameGear = (sms.console == CONSOLE_GG) | (sms.console == CONSOLE_GGMS);
@@ -70,7 +70,9 @@ void videoTask(void *arg)
             render_copy_palette(palette);
             //write_frame_rectangleLE(32,0,256,240,NULL);
             int ret = showMenu();
-            char *cartName = get_rom_name_settings();
+            char *cartName = NULL;
+            size_t len = 0;
+            settings_load_str(SettingRomPath, cartName, len);
             switch (ret)
             {
             case MENU_SAVE_STATE:
@@ -158,7 +160,9 @@ const char *StoragePath = "/storage";
 
 static void SaveState()
 {
-    char *romName = get_rom_name_settings();
+    char *romName = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, romName, len);
     if (romName)
     {
         char *fileName = system_util_GetFileName(romName);
@@ -206,7 +210,9 @@ static void SaveState()
 
 static void LoadState(const char *cartName)
 {
-    char *romName = get_rom_name_settings();
+    char *romName = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, romName, len);
     if (romName)
     {
         char *fileName = system_util_GetFileName(romName);
@@ -250,7 +256,7 @@ static void LoadState(const char *cartName)
         }
     }
 
-    Volume = get_volume_settings();
+    settings_load(SettingAudioVolume, &Volume);
     audio_volume_set(Volume);
 }
 
@@ -335,7 +341,7 @@ void app_main(void)
         abort();
     printf("app_main: framebuffer[1]=%p\n", framebuffer[1]);
 
-    nvs_flash_init();
+    settings_init();
 
     esplay_system_init();
 
@@ -398,11 +404,15 @@ void app_main(void)
     }
 
     display_init();
-    set_display_brightness((int)get_backlight_settings());
+    int brightness;
+    settings_load(SettingBacklight, &brightness);
+    set_display_brightness(brightness);
 
     const char *FILENAME = NULL;
 
-    char *cartName = get_rom_name_settings();
+    char *cartName = NULL;
+    size_t len = 0;
+    settings_load_str(SettingRomPath, cartName, len);
     if (!cartName)
     {
         // Load fixed file name

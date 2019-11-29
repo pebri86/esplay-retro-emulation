@@ -5,7 +5,6 @@
 #include "esp_system.h"
 #include "esp_event.h"
 #include "esp_event_loop.h"
-#include "nvs_flash.h"
 #include "driver/gpio.h"
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
@@ -81,7 +80,8 @@ static void drawHomeScreen()
     UG_FillRoundFrame(155, 50 + (56 * 2) + 13 + 18 - 1, 168 + (3 * 9) + 3, 50 + (56 * 2) + 13 + 18 + 11, 7, C_WHITE);
     UG_PutString(160, 50 + (56 * 2) + 13 + 18, "MENU");
 
-    uint8_t volume = get_volume_settings();
+    uint8_t volume = 25;
+    settings_load(SettingAudioVolume, &volume);
     char volStr[3];
     sprintf(volStr, "%i", volume);
     if (volume == 0)
@@ -107,11 +107,11 @@ static int resume(void)
 {
     int i;
     char *extension;
-    char *romPath;
+    char *romPath = NULL;
+    size_t len = 0;
 
     printf("trying to resume...\n");
-    romPath = get_rom_name_settings();
-    if (romPath)
+    if (settings_load_str(SettingRomPath, romPath, len) == 0)
     {
         extension = system_util_GetFileExtenstion(romPath);
         for (i = 0; i < strlen(extension); i++)
@@ -181,10 +181,15 @@ static void showOptionPage(int selected)
     UG_PutString(0, 240 - 72, desc->project_name);
     UG_PutString(0, 240 - 58, desc->version);
     UG_PutString(0, 240 - 44, idfVer);
-    uint8_t wifi = get_wifi_settings();
-    uint8_t volume = get_volume_settings();
-    uint8_t bright = get_backlight_settings();
-    uint8_t scaling = get_scale_option_settings();
+    int32_t wifi = 0;
+    int32_t volume = 25;
+    int32_t bright = 50;
+    int32_t scaling = SCALE_FIT;
+
+    settings_load(SettingWifi, &wifi);
+    settings_load(SettingAudioVolume, &volume);
+    settings_load(SettingBacklight, &bright);
+    settings_load(SettingScaleMode, &scaling);
 
     for (int i = 0; i < num_menu; i++)
     {
@@ -230,13 +235,13 @@ static void showOptionPage(int selected)
 
 static int showOption()
 {
-    int initial_wifi_settings = get_wifi_settings();
+    int initial_wifi_settings;
+    settings_load(SettingWifi, &initial_wifi_settings);
     int selected = 0;
     showOptionPage(selected);
 
     input_gamepad_state prevKey;
     gamepad_read(&prevKey);
-
     while (true)
     {
         input_gamepad_state key;
@@ -261,32 +266,32 @@ static int showOption()
             switch (selected)
             {
             case 0:
-                if (get_wifi_settings())
-                    set_wifi_settings(0);
+                if (initial_wifi_settings)
+                    settings_save(SettingWifi, 0);
                 else
-                    set_wifi_settings(1);
+                    settings_save(SettingWifi, 1);
                 break;
             case 1:
-                v = get_volume_settings();
+                settings_load(SettingAudioVolume, &v);
                 v -= 5;
                 if (v < 0)
                     v = 0;
-                set_volume_settings(v);
+                settings_save(SettingAudioVolume, v);
                 break;
             case 2:
-                v = get_backlight_settings();
+                settings_load(SettingBacklight, &v);
                 v -= 5;
                 if (v < 1)
                     v = 1;
-                set_backlight_settings(v);
                 set_display_brightness(v);
+                settings_save(SettingBacklight, v);
                 break;
             case 3:
-                v = get_scale_option_settings();
+                settings_load(SettingScaleMode, &v);
                 v--;
                 if (v < 0)
                     v = 2;
-                set_scale_option_settings(v);
+                settings_save(SettingScaleMode, v);
                 break;
 
             default:
@@ -300,32 +305,32 @@ static int showOption()
             switch (selected)
             {
             case 0:
-                if (get_wifi_settings())
-                    set_wifi_settings(0);
+                if (initial_wifi_settings)
+                    settings_save(SettingWifi, 0);
                 else
-                    set_wifi_settings(1);
+                    settings_save(SettingWifi, 1);
                 break;
             case 1:
-                v = get_volume_settings();
-                v += 5;
-                if (v > 255)
-                    v = 255;
-                set_volume_settings(v);
-                break;
-            case 2:
-                v = get_backlight_settings();
+                settings_load(SettingAudioVolume, &v);
                 v += 5;
                 if (v > 100)
                     v = 100;
-                set_backlight_settings(v);
+                settings_save(SettingAudioVolume, v);
+                break;
+            case 2:
+                settings_load(SettingBacklight, &v);
+                v += 5;
+                if (v > 100)
+                    v = 100;
                 set_display_brightness(v);
+                settings_save(SettingBacklight, v);
                 break;
             case 3:
-                v = get_scale_option_settings();
+                settings_load(SettingScaleMode, &v);
                 v++;
                 if (v > 2)
                     v = 0;
-                set_scale_option_settings(v);
+                settings_save(SettingScaleMode, v);
                 break;
 
             default:
@@ -344,7 +349,7 @@ static int showOption()
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
-    if (initial_wifi_settings != get_wifi_settings())
+    if (initial_wifi_settings != wifi_en)
         return 1;
 
     return 0;
@@ -353,7 +358,7 @@ static int showOption()
 //----------------------------------------------------------------
 void app_main(void)
 {
-    nvs_flash_init();
+    settings_init();
     esplay_system_init();
 
     audio_init(44100);
@@ -366,7 +371,9 @@ void app_main(void)
     display_prepare();
     display_init();
 
-    set_display_brightness((int)get_backlight_settings());
+    int brightness = 50;
+    settings_load(SettingBacklight, &brightness);
+    set_display_brightness(brightness);
 
     battery_level_init();
 
@@ -391,7 +398,7 @@ void app_main(void)
     sdcard_open("/sd"); // map SD card.
 
     ui_init();
-    wifi_en = get_wifi_settings();
+    settings_load(SettingWifi, &wifi_en);
 
     if (wifi_en)
     {
@@ -520,7 +527,7 @@ void app_main(void)
                 char *filename = ui_file_chooser(path, ext, 0, emu_name[menuItem]);
                 if (filename)
                 {
-                    set_rom_name_settings(filename);
+                    settings_save_str(SettingRomPath, filename);
                     system_application_set(emu_slot[menuItem]);
                     ui_clear_screen();
                     ui_flush();

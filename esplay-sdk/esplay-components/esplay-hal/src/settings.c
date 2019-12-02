@@ -13,7 +13,7 @@
 #include "nvs_flash.h"
 #include <assert.h>
 #include <esp_heap_caps.h>
-
+#include <limits.h>
 #include <esp_partition.h>
 #include <esp_ota_ops.h>
 
@@ -70,7 +70,7 @@ int settings_init(void)
 		return -1;
 	}
 
-	if (nvs_open("ogo-shell", NVS_READWRITE, &handle) != ESP_OK) {
+	if (nvs_open("esplay", NVS_READWRITE, &handle) != ESP_OK) {
 		return -1;
 	}
 
@@ -103,17 +103,22 @@ int settings_save(Setting setting, int32_t value)
 }
 
 /// Load string setting.
-/// Return 0 if saving was sucessfull
-int settings_load_str(Setting setting, char *value_out, size_t value_len)
+/// Return char * if saving was sucessfull
+char *settings_load_str(Setting setting)
 {
 	size_t len;
 	assert(setting < SettingMax && setting >= 0);
 	assert(settings_types[setting] == TypeStr);
 	nvs_get_str(handle, settings_keys[setting], NULL, &len);
-	if (len > value_len) {
-		return -1;
+	if (len > PATH_MAX) {
+		return NULL;
 	}
-	return nvs_get_str(handle, settings_keys[setting], value_out, &len);
+    char *value_out = malloc(len);
+    if(!value_out)
+        return NULL;
+	nvs_get_str(handle, settings_keys[setting], value_out, &len);
+
+    return value_out;
 }
 
 /// Save string setting.

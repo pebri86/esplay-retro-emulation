@@ -60,7 +60,7 @@ int settings_save(Setting setting, int32_t value);
 
 /// Load string setting.
 /// Return 0 if saving was sucessfull
-int settings_load_str(Setting setting, char *value_out, size_t value_len);
+char *settings_load_str(Setting setting);
 
 /// Save string setting.
 /// Return 0 if saving was sucessfull

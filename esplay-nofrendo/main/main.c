@@ -16,7 +16,7 @@
 #include "driver/sdspi_host.h"
 #include "sdmmc_cmd.h"
 #include <dirent.h>
-
+#include <limits.h>
 
 #include "settings.h"
 #include "power.h"
@@ -54,9 +54,8 @@ int app_main(void)
 
     char* fileName;
 
-    char* romName = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, romName, len);
+    char *romName = settings_load_str(SettingRomPath);
+
     if (romName)
     {
         fileName = system_util_GetFileName(romName);
@@ -132,8 +131,7 @@ int app_main(void)
     }
 
     // Load ROM
-    char* romPath = NULL;
-    settings_load_str(SettingRomPath, romPath, len);
+    char *romPath = settings_load_str(SettingRomPath);
     if (!romPath)
     {
         printf("osd_getromdata: Reading from flash.\n");

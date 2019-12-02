@@ -1,5 +1,5 @@
 // Esplay Launcher - launcher for ESPLAY based on Gogo Launcher for Odroid Go.
-
+#include "limits.h" /* PATH_MAX */
 #include "freertos/FreeRTOS.h"
 #include "esp_wifi.h"
 #include "esp_system.h"
@@ -36,7 +36,11 @@ battery_state bat_state;
 int num_menu = 5;
 char menu_text[5][20] = {"WiFi AP *", "Volume", "Brightness", "Upscaler", "Quit"};
 char scaling_text[3][20] = {"Native", "Normal", "Stretch"};
-uint8_t wifi_en;
+int32_t wifi_en = 0;
+int32_t volume = 25;
+int32_t bright = 50;
+int32_t scaling = SCALE_FIT;
+
 
 esp_err_t start_file_server(const char *base_path);
 
@@ -107,11 +111,10 @@ static int resume(void)
 {
     int i;
     char *extension;
-    char *romPath = NULL;
-    size_t len = 0;
+    char *romPath = settings_load_str(SettingRomPath);
 
     printf("trying to resume...\n");
-    if (settings_load_str(SettingRomPath, romPath, len) == 0)
+    if (romPath)
     {
         extension = system_util_GetFileExtenstion(romPath);
         for (i = 0; i < strlen(extension); i++)
@@ -181,15 +184,6 @@ static void showOptionPage(int selected)
     UG_PutString(0, 240 - 72, desc->project_name);
     UG_PutString(0, 240 - 58, desc->version);
     UG_PutString(0, 240 - 44, idfVer);
-    int32_t wifi = 0;
-    int32_t volume = 25;
-    int32_t bright = 50;
-    int32_t scaling = SCALE_FIT;
-
-    settings_load(SettingWifi, &wifi);
-    settings_load(SettingAudioVolume, &volume);
-    settings_load(SettingBacklight, &bright);
-    settings_load(SettingScaleMode, &scaling);
 
     for (int i = 0; i < num_menu; i++)
     {
@@ -206,9 +200,9 @@ static void showOptionPage(int selected)
         {
         case 0:
             if (i == selected)
-                ui_display_switch(307, top, wifi, C_YELLOW, C_BLUE, C_GRAY);
+                ui_display_switch(307, top, wifi_en, C_YELLOW, C_BLUE, C_GRAY);
             else
-                ui_display_switch(307, top, wifi, C_WHITE, C_BLUE, C_GRAY);
+                ui_display_switch(307, top, wifi_en, C_WHITE, C_BLUE, C_GRAY);
             break;
         case 1:
             if (i == selected)
@@ -235,8 +229,7 @@ static void showOptionPage(int selected)
 
 static int showOption()
 {
-    int initial_wifi_settings;
-    settings_load(SettingWifi, &initial_wifi_settings);
+    int32_t wifi_state = wifi_en;
     int selected = 0;
     showOptionPage(selected);
 
@@ -262,36 +255,30 @@ static int showOption()
         }
         if (!prevKey.values[GAMEPAD_INPUT_LEFT] && key.values[GAMEPAD_INPUT_LEFT])
         {
-            int v = 0;
             switch (selected)
             {
             case 0:
-                if (initial_wifi_settings)
-                    settings_save(SettingWifi, 0);
-                else
-                    settings_save(SettingWifi, 1);
+                wifi_en = ! wifi_en;
+                settings_save(SettingWifi, (int32_t)wifi_en);
                 break;
             case 1:
-                settings_load(SettingAudioVolume, &v);
-                v -= 5;
-                if (v < 0)
-                    v = 0;
-                settings_save(SettingAudioVolume, v);
+                volume -= 5;
+                if (volume < 0)
+                    volume = 0;
+                settings_save(SettingAudioVolume, (int32_t)volume);
                 break;
             case 2:
-                settings_load(SettingBacklight, &v);
-                v -= 5;
-                if (v < 1)
-                    v = 1;
-                set_display_brightness(v);
-                settings_save(SettingBacklight, v);
+                bright -= 5;
+                if (bright < 1)
+                    bright = 1;
+                set_display_brightness(bright);
+                settings_save(SettingBacklight, (int32_t)bright);
                 break;
             case 3:
-                settings_load(SettingScaleMode, &v);
-                v--;
-                if (v < 0)
-                    v = 2;
-                settings_save(SettingScaleMode, v);
+                scaling--;
+                if (scaling < 0)
+                    scaling = 2;
+                settings_save(SettingScaleMode, (int32_t)scaling);
                 break;
 
             default:
@@ -301,36 +288,30 @@ static int showOption()
         }
         if (!prevKey.values[GAMEPAD_INPUT_RIGHT] && key.values[GAMEPAD_INPUT_RIGHT])
         {
-            int v = 0;
             switch (selected)
             {
             case 0:
-                if (initial_wifi_settings)
-                    settings_save(SettingWifi, 0);
-                else
-                    settings_save(SettingWifi, 1);
+                wifi_en = !wifi_en;
+                settings_save(SettingWifi, (int32_t)wifi_en);
                 break;
             case 1:
-                settings_load(SettingAudioVolume, &v);
-                v += 5;
-                if (v > 100)
-                    v = 100;
-                settings_save(SettingAudioVolume, v);
+                volume += 5;
+                if (volume > 100)
+                    volume = 100;
+                settings_save(SettingAudioVolume, (int32_t)volume);
                 break;
             case 2:
-                settings_load(SettingBacklight, &v);
-                v += 5;
-                if (v > 100)
-                    v = 100;
-                set_display_brightness(v);
-                settings_save(SettingBacklight, v);
+                bright += 5;
+                if (bright > 100)
+                    bright = 100;
+                set_display_brightness(bright);
+                settings_save(SettingBacklight, (int32_t)bright);
                 break;
             case 3:
-                settings_load(SettingScaleMode, &v);
-                v++;
-                if (v > 2)
-                    v = 0;
-                settings_save(SettingScaleMode, v);
+                scaling++;
+                if (scaling > 2)
+                    scaling = 0;
+                settings_save(SettingScaleMode, (int32_t)scaling);
                 break;
 
             default:
@@ -349,7 +330,7 @@ static int showOption()
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 
-    if (initial_wifi_settings != wifi_en)
+    if (wifi_en != wifi_state)
         return 1;
 
     return 0;
@@ -398,7 +379,15 @@ void app_main(void)
     sdcard_open("/sd"); // map SD card.
 
     ui_init();
-    settings_load(SettingWifi, &wifi_en);
+
+    if(settings_load(SettingWifi, &wifi_en) != 0)
+        settings_save(SettingWifi, (int32_t)wifi_en);
+    if(settings_load(SettingAudioVolume, &volume) != 0)
+        settings_save(SettingAudioVolume, (int32_t)volume);
+    if(settings_load(SettingBacklight, &bright) != 0)
+        settings_save(SettingBacklight, (int32_t)bright);
+    if(settings_load(SettingScaleMode, &scaling) != 0)
+        settings_save(SettingScaleMode, (int32_t)scaling);
 
     if (wifi_en)
     {

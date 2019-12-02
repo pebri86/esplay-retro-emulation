@@ -33,6 +33,7 @@
 #include <osd.h>
 #include <libsnss.h>
 #include "nes6502.h"
+#include <limits.h>
 
 #include "sdcard.h"
 #include "settings.h"
@@ -537,9 +538,8 @@ _error:
 
 void save_sram()
 {
-    char* romPath = NULL;
-    size_t  len = 0;
-    settings_load_str(SettingRomPath, romPath, len);
+    char *romPath = settings_load_str(SettingRomPath);
+
     if (romPath)
     {
         esp_err_t r = sdcard_open(SD_BASE_PATH);
@@ -570,9 +570,8 @@ void save_sram()
 
 void load_sram()
 {
-    char* romName = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, romName, len);
+    char *romName = settings_load_str(SettingRomPath);
+
     if (romName)
     {
         esp_err_t r = sdcard_open(SD_BASE_PATH);

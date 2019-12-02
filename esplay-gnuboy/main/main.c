@@ -17,6 +17,7 @@
 #include "esp_ota_ops.h"
 #include "esp_task_wdt.h"
 
+#include <limits.h>
 #include <loader.h>
 #include <hw.h>
 #include <lcd.h>
@@ -275,9 +276,8 @@ void audioTask(void *arg)
 static void SaveState()
 {
     // Save sram
-    char *romPath = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, romPath, len);
+    char *romPath = settings_load_str(SettingRomPath);
+
     if (romPath)
     {
         char *fileName = system_util_GetFileName(romPath);
@@ -323,9 +323,7 @@ static void SaveState()
 
 static void LoadState(const char *cartName)
 {
-    char *romName = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, romName, len);
+    char *romName = settings_load_str(SettingRomPath);
     if (romName)
     {
         char *fileName = system_util_GetFileName(romName);

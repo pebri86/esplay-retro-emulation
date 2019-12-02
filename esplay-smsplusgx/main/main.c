@@ -9,6 +9,7 @@
 #include "esp_sleep.h"
 #include "driver/rtc_io.h"
 #include "esp_ota_ops.h"
+#include <limits.h>
 
 #include "../components/smsplus/shared.h"
 
@@ -70,9 +71,7 @@ void videoTask(void *arg)
             render_copy_palette(palette);
             //write_frame_rectangleLE(32,0,256,240,NULL);
             int ret = showMenu();
-            char *cartName = NULL;
-            size_t len = 0;
-            settings_load_str(SettingRomPath, cartName, len);
+            char *cartName = settings_load_str(SettingRomPath);
             switch (ret)
             {
             case MENU_SAVE_STATE:
@@ -106,6 +105,7 @@ void videoTask(void *arg)
                 break;
             }
 
+            free(cartName);
             write_sms_frame(NULL, palette, isGameGear, opt);
             showOverlay = 0;
             vTaskDelay(10);
@@ -160,9 +160,8 @@ const char *StoragePath = "/storage";
 
 static void SaveState()
 {
-    char *romName = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, romName, len);
+    char *romName = settings_load_str(SettingRomPath);
+
     if (romName)
     {
         char *fileName = system_util_GetFileName(romName);
@@ -210,9 +209,8 @@ static void SaveState()
 
 static void LoadState(const char *cartName)
 {
-    char *romName = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, romName, len);
+    char * romName = settings_load_str(SettingRomPath);
+
     if (romName)
     {
         char *fileName = system_util_GetFileName(romName);
@@ -410,9 +408,8 @@ void app_main(void)
 
     const char *FILENAME = NULL;
 
-    char *cartName = NULL;
-    size_t len = 0;
-    settings_load_str(SettingRomPath, cartName, len);
+    char *cartName = settings_load_str(SettingRomPath);
+
     if (!cartName)
     {
         // Load fixed file name

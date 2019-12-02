@@ -605,7 +605,7 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 		if (vol > 100)
 			vol = 100;
 		audio_volume_set(vol);
-		settings_save(SettingAudioVolume, vol);
+		settings_save(SettingAudioVolume, (int32_t)vol);
 		draw_player(&player_state);
 	}
 	if (!lastJoystickState.values[GAMEPAD_INPUT_DOWN] && joystick.values[GAMEPAD_INPUT_DOWN])
@@ -617,7 +617,7 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 
 		if (vol == 1)
 			audio_terminate();
-		settings_save(SettingAudioVolume, vol);
+		settings_save(SettingAudioVolume, (int32_t)vol);
 		draw_player(&player_state);
 	}
 	if (!lastJoystickState.values[GAMEPAD_INPUT_RIGHT] && joystick.values[GAMEPAD_INPUT_RIGHT])
@@ -625,7 +625,10 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 	if (!lastJoystickState.values[GAMEPAD_INPUT_LEFT] && joystick.values[GAMEPAD_INPUT_LEFT])
 		player_send_cmd(PlayerCmdPrev);
 	if (!lastJoystickState.values[GAMEPAD_INPUT_START] && joystick.values[GAMEPAD_INPUT_START])
+	{
 		player_send_cmd(PlayerCmdToggleLoopMode);
+		settings_save(SettingPlayingMode, (int32_t)player_state.playing_mode);
+	}
 	if (!lastJoystickState.values[GAMEPAD_INPUT_SELECT] && joystick.values[GAMEPAD_INPUT_SELECT])
 	{
 		set_display_brightness(backlight_on ? 0 : 50);

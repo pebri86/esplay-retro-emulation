@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -199,9 +200,8 @@ int rom_load()
 
 	data = (void*)0x3f800000;
 
-	char* romPath = NULL;
-	size_t length = 0;
-	settings_load_str(SettingRomPath, romPath, length);
+	char *romPath = settings_load_str(SettingRomPath);
+
 	if (!romPath)
 	{
 		printf("loader: Reading from flash.\n");

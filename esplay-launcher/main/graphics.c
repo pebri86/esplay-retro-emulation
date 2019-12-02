@@ -7,6 +7,13 @@ static const char gfxTile[]={
 #include "gfxTile.inc"
 };
 
+#define GFX_O_EMPTY 0
+#define GFX_O_FULL 1
+#define GFX_O_CHG 2
+#define GFX_O_CHGNEARFULL 3
+
+const char * chargeinfo = "Press A to Play";
+
 void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
 {
     uint16_t *fb = ui_get_fb();
@@ -40,6 +47,34 @@ void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
 			fb[(dy+y)*320+(dx+x)]=i;
 		}
 	}
+}
+
+void guiCharging(int almostFull) {
+	ui_clear_screen();
+    UG_FontSelect(&FONT_6X8);
+    UG_PutString((320 - strlen(chargeinfo) * 7)/2, ((240 - 11)/2)+15, chargeinfo);
+	if (!almostFull) {
+		renderGraphics((320-41)/2, (240 - 11)/2, 208, 439 + (11*GFX_O_CHG), 41, 11);
+	} else {
+		renderGraphics((320-41)/2, (240 - 11)/2, 208, 439 + (11*GFX_O_CHGNEARFULL), 41, 11);
+	}
+	ui_flush();
+}
+
+void guiFull() {
+	ui_clear_screen();
+    UG_FontSelect(&FONT_6X8);
+    UG_PutString((320 - strlen(chargeinfo) * 7)/2, ((240 - 11)/2)+15, chargeinfo);
+	renderGraphics((320-41)/2, (240 - 11)/2, 208, 439 + (11*GFX_O_FULL), 41, 11);
+	ui_flush();
+}
+
+void guiBatEmpty() {
+	ui_clear_screen();
+    UG_FontSelect(&FONT_6X8);
+    UG_PutString((320 - strlen(chargeinfo) * 7)/2, ((240 - 11)/2)+15, chargeinfo);
+	renderGraphics((320-41)/2, (240 - 11)/2, 208, 439 + (11*GFX_O_EMPTY), 41, 11);
+	ui_flush();
 }
 
 void drawBattery(int batPercent)

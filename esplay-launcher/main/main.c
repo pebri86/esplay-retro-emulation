@@ -10,6 +10,12 @@
 #include "esp_ota_ops.h"
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
+#include "soc/dport_reg.h"
+
+#include "rom/rtc.h"
+#include "soc/soc.h"
+#include "soc/rtc.h"
+#include "soc/rtc_cntl_reg.h"
 
 #include "settings.h"
 #include "gamepad.h"
@@ -47,6 +53,52 @@ esp_err_t start_file_server(const char *base_path);
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
     return ESP_OK;
+}
+
+static void handleCharging() {
+	int r;
+	int fullCtr=0;
+	//The LiIon charger sometimes goes back from 'full' to 'charging', which is
+	//confusing to the end user. This variable becomes true if the LiIon has indicated 'full'
+	//for a while, and it being true causes the 'full' icon to always show.
+	int fixFull=0;
+
+	//Force brightness low to decrease chance of burn-in
+	set_display_brightness(30);
+	printf("Detected charger.\n");
+	guiCharging(0);
+
+	//Speed down
+	rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
+    input_gamepad_state prevKey;
+    gamepad_read(&prevKey);
+	do {
+        input_gamepad_state key;
+        gamepad_read(&key);
+		r=getChargeStatus();
+		if (r==FULL_CHARGED || fixFull) {
+			guiFull();
+			printf("Full!\n");
+			fullCtr++;
+		} else if (r==CHARGING) {
+            battery_level_read(&bat_state);
+			guiCharging(bat_state.millivolts > 4100);
+			printf("Charging...\n");
+			fullCtr=0;
+		}
+
+		if (!prevKey.values[GAMEPAD_INPUT_A] && key.values[GAMEPAD_INPUT_A]) {
+			printf("Power btn A; go to launcher menu\n");
+			break;
+		}
+		if (fullCtr==32) {
+			fixFull=1;
+		}
+		vTaskDelay(1);
+        prevKey = key;
+	} while (r!=NO_CHRG);
+
+    rtc_clk_cpu_freq_set(RTC_CPU_FREQ_240M);
 }
 
 static void drawHomeScreen()
@@ -379,7 +431,11 @@ void app_main(void)
     sdcard_open("/sd"); // map SD card.
 
     ui_init();
+    charging_state st = getChargeStatus();
+    if (st == CHARGING)
+        handleCharging();
 
+    UG_FontSelect(&FONT_8X12);
     if(settings_load(SettingWifi, &wifi_en) != 0)
         settings_save(SettingWifi, (int32_t)wifi_en);
     if(settings_load(SettingAudioVolume, &volume) != 0)

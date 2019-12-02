@@ -101,6 +101,7 @@ static PlayerState player_state = {
 };
 static bool keys_locked = false;
 static bool backlight_on = true;
+static bool speaker_on = false;
 
 // These need to be implemented for SDL/FreeRTOS seperately
 static PlayerCmd player_poll_cmd(void);
@@ -202,7 +203,7 @@ static PlayerResult handle_cmd(PlayerState *const state, const AudioInfo info, c
 		if (state->playing)
 		{
 			audio_init((int)info.sample_rate);
-			audio_amp_disable();
+			speaker_on ? audio_amp_enable() : audio_amp_disable();
 		}
 		else
 		{
@@ -214,7 +215,7 @@ static PlayerResult handle_cmd(PlayerState *const state, const AudioInfo info, c
 		if (state->playing)
 			audio_terminate();
 		audio_init((int)info.sample_rate);
-		audio_amp_disable();
+		speaker_on ? audio_amp_enable() : audio_amp_disable();
 		push_audio_event(AudioPlayerEventStateChanged);
 		break;
 	case PlayerCmdToggleLoopMode:
@@ -272,7 +273,7 @@ static PlayerResult play_song(const Song *const song)
 	}
 
 	audio_init((int)info.sample_rate);
-	audio_amp_disable();
+	speaker_on ? audio_amp_enable() : audio_amp_disable();
 
 	int n_frames = 0;
 	state->playing = true;
@@ -434,6 +435,7 @@ static void draw_player(const PlayerState *const state)
 	// Show Playing or paused/DAC on image
 	UG_PutString(222, y + 11, state->playing ? "Pause" : "Continue");
 	UG_PutString(222, y + 50, "Go Back");
+	UG_PutString(222, y + 89, speaker_on ? "Speaker off" : "Speaker on");
 	y += 115;
 
 	// Explain start and stop button behaviour
@@ -633,6 +635,12 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 	{
 		set_display_brightness(backlight_on ? 0 : 50);
 		backlight_on = !backlight_on;
+	}
+	if (!lastJoystickState.values[GAMEPAD_INPUT_L] && joystick.values[GAMEPAD_INPUT_L])
+	{
+		speaker_on = !speaker_on;
+		speaker_on ? audio_amp_enable() : audio_amp_disable();
+		draw_player(&player_state);
 	}
 
 	lastJoystickState = joystick;

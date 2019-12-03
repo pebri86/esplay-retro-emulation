@@ -76,7 +76,6 @@ typedef enum PlayingMode
 } PlayingMode;
 
 static const char *playing_mode_str[PlayingModeMax] = {"Normal", "Repeat Song", "Repeat Playlist/Folder"};
-input_gamepad_state lastJoystickState;
 
 // Owned by player task, can only be modified/written to by player task
 typedef struct PlayerState
@@ -444,164 +443,15 @@ static void draw_player(const PlayerState *const state)
 	UG_PutString(3, y, "START: Cycle through Playing Mode");
 
 	ui_flush();
-
-	/*
-	rect_t window_rect = (rect_t){.x = 0, .y = 32, .width = DISPLAY_WIDTH, .height = DISPLAY_HEIGHT - 32};
-	fill_rectangle(fb, window_rect, COLOR_GRAY);
-
-	const int line_height = 16;
-	short y = 34;
-
-	char str_buf[300];
-	Song *song = &state->playlist[state->playlist_index];
-
-	snprintf(str_buf, 300, "%d/%d", state->playlist_index + 1, (int)state->playlist_length);
-	ui_draw_pathbar("Audio Player", str_buf, false);
-
-	// Song name
-	snprintf(str_buf, 300, "Song: %s", song->filename);
-	tf_draw_str(fb, ui_font_white, str_buf, (point_t){.x = 3, .y = y});
-	y += line_height;
-
-	// Song playmode
-	snprintf(str_buf, 300, "Playing Mode: %s", playing_mode_str[state->playing_mode]);
-	tf_draw_str(fb, ui_font_white, str_buf, (point_t){.x = 3, .y = y});
-	y += line_height;
-
-	// Show volume
-	snprintf(str_buf, 300, "Volume: %d%%", audio_volume_get());
-	tf_draw_str(fb, ui_font_white, str_buf, (point_t){.x = 3, .y = y});
-	y += line_height + 3;
-
-	// Show Playing or paused/DAC on image
-	tf_draw_str(fb, ui_font_white, state->playing ? "Pause" : "Continue", (point_t){.x = 222, .y = y + 10});
-	tf_draw_str(fb, ui_font_white, "Go back", (point_t){.x = 222, .y = y + 10 + 37});
-	//tf_draw_str(fb, ui_font_white, audio_output_get() == AudioOutputSpeaker ? "Switch DAC" : "Switch Speaker",
-		    //(point_t){.x = 222, .y = y + 10 + 37 * 2});
-
-	// Display help image
-	gbuf_t img = {.width = (uint16_t)guide_img.width,
-		      .height = (uint16_t)guide_img.height,
-		      .bytes_per_pixel = 2,
-		      .data = (uint8_t *)&guide_img.pixel_data,
-		      .big_endian = false};
-	blit(fb, (rect_t){.x = 10, .y = y, .width = img.width, .height = img.height - 1}, &img,
-	     (rect_t){.x = 0, .y = 1, .width = img.width, .height = img.height - 1});
-	y += img.height + 8;
-
-	// Explain start and stop button behaviour
-	tf_draw_str(fb, ui_font_white, "SELECT: Toggle screen, hold(>1s) & release for Keylock", (point_t){.x = 3, .y = y});
-	y += line_height + 3;
-	tf_draw_str(fb, ui_font_white, "START: Cycle through Playing Mode", (point_t){.x = 3, .y = y});
-
-	// TODO: Song position/duration?
-
-	display_update_rect(window_rect);
-	*/
-}
-
-/// Calculate the difference between two timespecs in milliseconds
-static uint64_t ts_diff_ms(const struct timespec ts1, const struct timespec ts2)
-{
-	const uint64_t ts1_ms = ts1.tv_sec * (uint64_t)1000 + ts1.tv_nsec / (uint64_t)1000000;
-	const uint64_t ts2_ms = ts2.tv_sec * (uint64_t)1000 + ts2.tv_nsec / (uint64_t)1000000;
-	return ts2_ms - ts1_ms;
 }
 
 static void handle_keypress(event_keypad_t keys, bool *quit)
 {
-	/*
-	static struct timespec menu_pressed_start, tmp;
-	static bool select_pressed = false;
-
-	if (keys.released) {
-		if ((keys.released & KEYPAD_SELECT) && select_pressed) {
-			clock_gettime(CLOCK_MONOTONIC, &tmp);
-			const uint64_t diff = ts_diff_ms(menu_pressed_start, tmp);
-
-			if (keys_locked) {
-				if (diff > 1000) {
-					keys_locked = !keys_locked;
-					backlight_on = !keys_locked;
-				}
-			} else {
-				if (backlight_on && diff > 1000) {
-					keys_locked = !keys_locked;
-					backlight_on = !keys_locked;
-				} else {
-					backlight_on = !backlight_on;
-				}
-			}
-
-			select_pressed = false;
-			set_display_brightness(backlight_on ? 50 : 0);
-		}
-	}
-
-	if (keys_locked) {
-		if (keys.pressed & KEYPAD_SELECT) {
-			select_pressed = true;
-			clock_gettime(CLOCK_MONOTONIC, &menu_pressed_start);
-		}
-		return;
-	}
-
-	switch (keys.pressed) {
-	case KEYPAD_A:
+	if (!keys.last_state.values[GAMEPAD_INPUT_A] && keys.state.values[GAMEPAD_INPUT_A])
 		player_send_cmd(PlayerCmdPause);
-		break;
-	case KEYPAD_L:
+	if (!keys.last_state.values[GAMEPAD_INPUT_B] && keys.state.values[GAMEPAD_INPUT_B])
 		*quit = true;
-		break;
-	case KEYPAD_UP:
-		// Volume up
-		audio_volume_set(audio_volume_get() + 5);
-		draw_player(&player_state);
-		//settings_save(SettingAudioVolume, audio_volume_get());
-		break;
-	case KEYPAD_DOWN:
-		// Volume down
-		audio_volume_set(audio_volume_get() - 5);
-		draw_player(&player_state);
-	//	settings_save(SettingAudioVolume, audio_volume_get());
-		break;
-	case KEYPAD_RIGHT:
-		// Try to play next song in list
-		player_send_cmd(PlayerCmdNext);
-		break;
-	case KEYPAD_LEFT:
-		player_send_cmd(PlayerCmdPrev);
-		break;
-	case KEYPAD_VOLUME:
-		// Toggle DAC/Speaker output mode
-		audio_output_set(audio_output_get() == AudioOutputDAC ? AudioOutputSpeaker : AudioOutputDAC);
-		player_send_cmd(PlayerCmdReinitAudio);
-		settings_save(SettingAudioOutput, (int32_t)audio_output_get());
-		break;
-	case KEYPAD_START:
-		// Toggle playing mode
-		player_send_cmd(PlayerCmdToggleLoopMode);
-		//settings_save(SettingPlayingMode, (int32_t)player_state.playing_mode);
-		break;
-	case KEYPAD_SELECT:
-		select_pressed = true;
-		clock_gettime(CLOCK_MONOTONIC, &menu_pressed_start);
-		break;
-	case KEYPAD_MENU:
-		// TODO: Show future system menu
-		break;
-	} // switch(event.keypad.pressed)
-	printf("KEY : %i", keys.pressed);
-	*/
-
-	input_gamepad_state joystick;
-	gamepad_read(&joystick);
-
-	if (!lastJoystickState.values[GAMEPAD_INPUT_A] && joystick.values[GAMEPAD_INPUT_A])
-		player_send_cmd(PlayerCmdPause);
-	if (!lastJoystickState.values[GAMEPAD_INPUT_B] && joystick.values[GAMEPAD_INPUT_B])
-		*quit = true;
-	if (!lastJoystickState.values[GAMEPAD_INPUT_UP] && joystick.values[GAMEPAD_INPUT_UP])
+	if (!keys.last_state.values[GAMEPAD_INPUT_UP] && keys.state.values[GAMEPAD_INPUT_UP])
 	{
 		int vol = audio_volume_get() + 5;
 		if (vol > 100)
@@ -610,7 +460,7 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 		settings_save(SettingAudioVolume, (int32_t)vol);
 		draw_player(&player_state);
 	}
-	if (!lastJoystickState.values[GAMEPAD_INPUT_DOWN] && joystick.values[GAMEPAD_INPUT_DOWN])
+	if (!keys.last_state.values[GAMEPAD_INPUT_DOWN] && keys.state.values[GAMEPAD_INPUT_DOWN])
 	{
 		int vol = audio_volume_get() - 5;
 		if (vol < 1)
@@ -622,28 +472,26 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 		settings_save(SettingAudioVolume, (int32_t)vol);
 		draw_player(&player_state);
 	}
-	if (!lastJoystickState.values[GAMEPAD_INPUT_RIGHT] && joystick.values[GAMEPAD_INPUT_RIGHT])
+	if (!keys.last_state.values[GAMEPAD_INPUT_RIGHT] && keys.state.values[GAMEPAD_INPUT_RIGHT])
 		player_send_cmd(PlayerCmdNext);
-	if (!lastJoystickState.values[GAMEPAD_INPUT_LEFT] && joystick.values[GAMEPAD_INPUT_LEFT])
+	if (!keys.last_state.values[GAMEPAD_INPUT_LEFT] && keys.state.values[GAMEPAD_INPUT_LEFT])
 		player_send_cmd(PlayerCmdPrev);
-	if (!lastJoystickState.values[GAMEPAD_INPUT_START] && joystick.values[GAMEPAD_INPUT_START])
+	if (!keys.last_state.values[GAMEPAD_INPUT_START] && keys.state.values[GAMEPAD_INPUT_START])
 	{
 		player_send_cmd(PlayerCmdToggleLoopMode);
 		settings_save(SettingPlayingMode, (int32_t)player_state.playing_mode);
 	}
-	if (!lastJoystickState.values[GAMEPAD_INPUT_SELECT] && joystick.values[GAMEPAD_INPUT_SELECT])
+	if (!keys.last_state.values[GAMEPAD_INPUT_SELECT] && keys.state.values[GAMEPAD_INPUT_SELECT])
 	{
 		set_display_brightness(backlight_on ? 0 : 50);
 		backlight_on = !backlight_on;
 	}
-	if (!lastJoystickState.values[GAMEPAD_INPUT_L] && joystick.values[GAMEPAD_INPUT_L])
+	if (!keys.last_state.values[GAMEPAD_INPUT_L] && keys.state.values[GAMEPAD_INPUT_L])
 	{
 		speaker_on = !speaker_on;
 		speaker_on ? audio_amp_enable() : audio_amp_disable();
 		draw_player(&player_state);
 	}
-
-	lastJoystickState = joystick;
 }
 
 #define MAX_SONGS 1024
@@ -743,7 +591,6 @@ int audio_player(AudioPlayerParam params)
 	if (make_playlist(&player_state, params) != 0)
 	{
 		printf("Could not determine audio codec\n");
-		//ui_message_error("Could not determine audio codec");
 		return -1;
 	}
 
@@ -752,7 +599,6 @@ int audio_player(AudioPlayerParam params)
 
 	bool quit = false;
 	event_t event;
-	gamepad_read(&lastJoystickState);
 	while (!quit)
 	{
 		// Handle inputs
@@ -773,7 +619,6 @@ int audio_player(AudioPlayerParam params)
 			else if (event.audio_player.event == AudioPlayerEventError)
 			{
 				printf("Error playing audio file\n");
-				//ui_message_error("Error playing audio file");
 				quit = true;
 			}
 			else

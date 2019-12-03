@@ -7,14 +7,15 @@
 #include <string.h>
 
 static QueueHandle_t event_queue;
+static bool event_running = false;
 
 static void keypad_task(void *arg)
 {
+	event_running = true;
 	event_t event;
-
 	input_gamepad_state prevKey;
 	gamepad_read(&prevKey);
-	while (true) {
+	while (event_running) {
 		input_gamepad_state key;
 		gamepad_read(&key);
 		vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -27,12 +28,21 @@ static void keypad_task(void *arg)
 		}
 		prevKey = key;
 	}
+
+  vTaskDelete(NULL);
+	vQueueDelete(event_queue);
 }
 
 void event_init(void)
 {
 	event_queue = xQueueCreate(10, sizeof(event_t));
 	xTaskCreate(keypad_task, "keypad", 4096, NULL, 5, NULL);
+}
+
+void event_deinit(void)
+{
+	event_running = false;
+	printf("Shutdown event..\n");
 }
 
 int wait_event(event_t *event)

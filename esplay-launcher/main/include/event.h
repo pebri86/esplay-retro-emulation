@@ -42,5 +42,6 @@ typedef union {
 } event_t;
 
 void event_init(void);
+void event_deinit(void);
 int wait_event(event_t *event);
 int push_event(event_t *event);

@@ -398,7 +398,6 @@ void app_main(void)
     audio_amp_disable();
 
     gamepad_init();
-    event_init();
 
     // Display
     display_prepare();
@@ -589,13 +588,11 @@ void app_main(void)
                 audio_player((AudioPlayerParam){new_entries, n_entries, 0, AUDIO_FILE_PATH, true});
 
                 fops_free_entries(&new_entries, n_entries);
-                // TODO : For some reason after audio_player close it won't play anymore so just restart for now
-                esp_restart();
-                /*
+
+                UG_FontSelect(&FONT_8X12);
                 drawHomeScreen();
                 lastUpdate = 0;
                 doRefresh = 1;
-                */
             }
 
             // B Pressed instead of A

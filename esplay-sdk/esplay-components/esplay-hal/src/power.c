@@ -147,25 +147,18 @@ static void battery_monitor_task()
                 if (chrg == FULL_CHARGED || fixFull)
                 {
                     fullCtr++;
+                    system_led_set(0);
                 }
 
                 if (chrg == CHARGING)
                 {
                     fullCtr = 0;
+                    system_led_set(1);
                 }
 
                 if (fullCtr == 32)
                 {
                     fixFull = 1;
-                }
-
-                if (fixFull)
-                {
-                    system_led_set(0);
-                }
-                else
-                {
-                    system_led_set(1);
                 }
 
                 if (chrg == NO_CHRG)

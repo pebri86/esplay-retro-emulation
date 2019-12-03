@@ -219,6 +219,7 @@ static PlayerResult handle_cmd(PlayerState *const state, const AudioInfo info, c
 		break;
 	case PlayerCmdToggleLoopMode:
 		state->playing_mode = (state->playing_mode + 1) % PlayingModeMax;
+		settings_save(SettingPlayingMode, (int32_t)state->playing_mode);
 		push_audio_event(AudioPlayerEventStateChanged);
 		break;
 	case PlayerCmdTerminate:
@@ -477,10 +478,7 @@ static void handle_keypress(event_keypad_t keys, bool *quit)
 	if (!keys.last_state.values[GAMEPAD_INPUT_LEFT] && keys.state.values[GAMEPAD_INPUT_LEFT])
 		player_send_cmd(PlayerCmdPrev);
 	if (!keys.last_state.values[GAMEPAD_INPUT_START] && keys.state.values[GAMEPAD_INPUT_START])
-	{
 		player_send_cmd(PlayerCmdToggleLoopMode);
-		settings_save(SettingPlayingMode, (int32_t)player_state.playing_mode);
-	}
 	if (!keys.last_state.values[GAMEPAD_INPUT_SELECT] && keys.state.values[GAMEPAD_INPUT_SELECT])
 	{
 		set_display_brightness(backlight_on ? 0 : 50);
@@ -585,6 +583,7 @@ static void load_settings(PlayerState *state)
 
 int audio_player(AudioPlayerParam params)
 {
+	event_init();
 	memset(&player_state, 0, sizeof(PlayerState));
 	load_settings(&player_state);
 
@@ -638,6 +637,7 @@ int audio_player(AudioPlayerParam params)
 	player_terminate();
 	free_playlist(&player_state);
 	keys_locked = false;
+	event_deinit();
 	set_display_brightness(50);
 
 	return 0;

@@ -69,7 +69,7 @@ static void handleCharging() {
 	guiCharging(0);
 
 	//Speed down
-	rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
+	rtc_clk_cpu_freq_set(RTC_CPU_FREQ_2M);
     input_gamepad_state prevKey;
     gamepad_read(&prevKey);
 	do {

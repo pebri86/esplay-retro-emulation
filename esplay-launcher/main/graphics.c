@@ -12,7 +12,7 @@ static const char gfxTile[]={
 #define GFX_O_CHG 2
 #define GFX_O_CHGNEARFULL 3
 
-const char * chargeinfo = "Press A to Play";
+const char * chargeinfo = "Hold A Button to Play";
 
 void renderGraphics(int dx, int dy, int sx, int sy, int sw, int sh)
 {

@@ -29,6 +29,7 @@ const char* SD_BASE_PATH = "/sd";
 static char* ROM_DATA = (char*)0x3f800000;
 
 extern bool forceConsoleReset;
+int32_t scaleAlg;
 
 char *osd_getromdata()
 {
@@ -83,6 +84,9 @@ int app_main(void)
     int brightness;
     settings_load(SettingBacklight, &brightness);
     set_display_brightness(brightness);
+
+    // load alghoritm
+    settings_load(SettingAlg, &scaleAlg);
 
     // battery
     battery_level_init();

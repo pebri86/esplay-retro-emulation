@@ -26,6 +26,8 @@
 
 #include <dirent.h>
 
+int32_t scaleAlg;
+
 const char *SD_BASE_PATH = "/sd";
 
 #define AUDIO_SAMPLE_RATE (32000)
@@ -405,6 +407,9 @@ void app_main(void)
     int brightness;
     settings_load(SettingBacklight, &brightness);
     set_display_brightness(brightness);
+
+    // load alghorithm
+    settings_load(SettingAlg, &scaleAlg);
 
     const char *FILENAME = NULL;
 

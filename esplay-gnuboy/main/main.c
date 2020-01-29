@@ -64,6 +64,8 @@ const char *StateFileName = "/gnuboy/data/gnuboy.sav";
 
 const char *SD_BASE_PATH = "/sd";
 
+int32_t scaleAlg;
+
 #define GAMEBOY_WIDTH (160)
 #define GAMEBOY_HEIGHT (144)
 
@@ -469,6 +471,9 @@ void app_main(void)
     int volume = 25;
     settings_load(SettingAudioVolume, &volume);
     audio_volume_set(volume);
+
+    // load alghorithm
+    settings_load(SettingAlg, &scaleAlg);
 
     // battery
     battery_level_init();

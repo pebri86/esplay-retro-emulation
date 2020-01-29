@@ -37,8 +37,15 @@ typedef enum Setting {
 	SettingRomPath,
 	SettingScaleMode,
 	SettingWifi,
+	SettingAlg,
 	SettingMax,
 } Setting;
+
+typedef enum ScaleAlghorithm {
+	NEAREST_NEIGHBOR = 0,
+	BILINIER_INTERPOLATION,
+	BOX_FILTERED
+} ScaleAlghorithm;
 
 /**********************
  * GLOBAL PROTOTYPES

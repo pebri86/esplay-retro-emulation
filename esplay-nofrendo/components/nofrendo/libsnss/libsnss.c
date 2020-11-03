@@ -207,7 +207,7 @@ SNSS_OpenFile (SNSS_FILE **snssFile, const char *filename, SNSS_OPEN_MODE mode)
    *snssFile = malloc(sizeof(SNSS_FILE));
    if (NULL == *snssFile)
    {
-       abort();
+       //abort();
       return SNSS_OUT_OF_MEMORY;
    }
 
@@ -404,7 +404,7 @@ SNSS_ReadBaseBlock (SNSS_FILE *snssFile)
    snssFile->baseBlock.vramAddress = swap16 (snssFile->baseBlock.vramAddress);
    snssFile->baseBlock.spriteRamAddress = blockBytes[0x192F];
    snssFile->baseBlock.tileXOffset = blockBytes[0x1930];
-
+   free(blockBytes);
    return SNSS_OK;
 }
 
@@ -457,7 +457,7 @@ SNSS_WriteBaseBlock (SNSS_FILE *snssFile)
    }
 
    snssFile->headerBlock.numberOfBlocks++;
-
+   free(blockBytes);
    return SNSS_OK;
 }
 

@@ -34,8 +34,8 @@ static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int
         xv = (int)((x_ratio * x) >> 16);
         yv = (int)((y_ratio * y) >> 16);
 
-        x_diff = ((x_ratio * x) >> 16) - (xv);
-        y_diff = ((y_ratio * y) >> 16) - (yv);
+        x_diff = (x_ratio * x) - (xv << 16);
+        y_diff = (y_ratio * y) - (yv << 16);
 
         index = yv * w1 + xv;
 
@@ -44,15 +44,18 @@ static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int
         c = bufs[index + w1];
         d = bufs[index + w1 + 1];
 
-        red = (((a >> 11) & 0x1f) * (1 - x_diff) * (1 - y_diff) + ((b >> 11) & 0x1f) * (x_diff) * (1 - y_diff) +
-            ((c >> 11) & 0x1f) * (y_diff) * (1 - x_diff) + ((d >> 11) & 0x1f) * (x_diff * y_diff));
+        red = (((a >> 11) & 0x1f) * (8 - (x_diff >> 13)) * (8 - (y_diff >> 13)) + ((b >> 11) & 0x1f) * (x_diff >> 13) * (8 - (y_diff >> 13)) +
+               ((c >> 11) & 0x1f) * (y_diff >> 13) * (8 - (x_diff >> 13)) + ((d >> 11) & 0x1f) * ((x_diff >> 13) * (y_diff >> 13)));
+        red = red >> 6;
 
-        green = (((a >> 5) & 0x3f) * (1 - x_diff) * (1 - y_diff) + ((b >> 5) & 0x3f) * (x_diff) * (1 - y_diff) +
-                ((c >> 5) & 0x3f) * (y_diff) * (1 - x_diff) + ((d >> 5) & 0x3f) * (x_diff * y_diff));
+        green = (((a >> 5) & 0x3f) * (8 - (x_diff >> 13)) * (8 - (y_diff >> 13)) + ((b >> 5) & 0x3f) * (x_diff >> 13) * (8 - (y_diff >> 13)) +
+                 ((c >> 5) & 0x3f) * (y_diff >> 13) * (8 - (x_diff >> 13)) + ((d >> 5) & 0x3f) * ((x_diff >> 13) * (y_diff >> 13)));
+        green = green >> 6;
 
-        blue = (((a)&0x1f) * (1 - x_diff) * (1 - y_diff) + ((b)&0x1f) * (x_diff) * (1 - y_diff) +
-                ((c)&0x1f) * (y_diff) * (1 - x_diff) + ((d)&0x1f) * (x_diff * y_diff));
-
+        blue = (((a)&0x1f) * (8 - (x_diff >> 13)) * (8 - (y_diff >> 13)) + ((b)&0x1f) * (x_diff >> 13) * (8 - (y_diff >> 13)) +
+                ((c)&0x1f) * (y_diff >> 13) * (8 - (x_diff >> 13)) + ((d)&0x1f) * ((x_diff >> 13) * (y_diff >> 13)));
+        blue = blue >> 6;
+        
         col = ((int)red << 11) | ((int)green << 5) | ((int)blue);
 
         return col;

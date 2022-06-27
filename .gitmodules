@@ -1,0 +1,3 @@
+[submodule "launcher/components/lvgl"]
+	path = launcher/components/lvgl
+	url = https://github.com/lvgl/lvgl.git

@@ -1,0 +1,5 @@
+# Name,   Type, SubType, Offset,  Size
+nvs, data, nvs, 0x9000, 0x10000
+launcher,  app,  factory, 0x20000, 0x1F0000
+appfs,    0x43,   3,     0x210000, 0xDE0000
+coredump, data, coredump,0xFF0000, 0x010000

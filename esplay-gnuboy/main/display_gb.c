@@ -44,19 +44,16 @@ static uint16_t getPixel(const uint16_t *bufs, int x, int y, int w1, int h1, int
         c = bufs[index + w1];
         d = bufs[index + w1 + 1];
 
-        red = (((a >> 11) & 0x1f) * (8 - (x_diff >> 13)) * (8 - (y_diff >> 13)) + ((b >> 11) & 0x1f) * (x_diff >> 13) * (8 - (y_diff >> 13)) +
-               ((c >> 11) & 0x1f) * (y_diff >> 13) * (8 - (x_diff >> 13)) + ((d >> 11) & 0x1f) * ((x_diff >> 13) * (y_diff >> 13)));
-        red = red >> 6;
-
-        green = (((a >> 5) & 0x3f) * (8 - (x_diff >> 13)) * (8 - (y_diff >> 13)) + ((b >> 5) & 0x3f) * (x_diff >> 13) * (8 - (y_diff >> 13)) +
-                 ((c >> 5) & 0x3f) * (y_diff >> 13) * (8 - (x_diff >> 13)) + ((d >> 5) & 0x3f) * ((x_diff >> 13) * (y_diff >> 13)));
-        green = green >> 6;
-
-        blue = (((a)&0x1f) * (8 - (x_diff >> 13)) * (8 - (y_diff >> 13)) + ((b)&0x1f) * (x_diff >> 13) * (8 - (y_diff >> 13)) +
-                ((c)&0x1f) * (y_diff >> 13) * (8 - (x_diff >> 13)) + ((d)&0x1f) * ((x_diff >> 13) * (y_diff >> 13)));
-        blue = blue >> 6;
+        red = (a & 0xF800) + (b & 0xF800) + (c & 0xF800) + (d & 0xF800);
+        red = (red >> 8) & 0xF8;
         
-        col = ((int)red << 11) | ((int)green << 5) | ((int)blue);
+        green = (a & 0x07E0) + (b & 0x07E0) + (c & 0x07E0) + (d & 0x07E0);
+        green = (green >> 3) & 0xFC;
+        
+        blue = (a & 0x001F) + (b & 0x001F) + (c & 0x001F) + (d & 0x001F);
+        blue = (blue >> 2) & 0x1F;
+        
+        col = (red << 8) | (green << 3) | blue;
 
         return col;
     }
@@ -128,7 +125,7 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
                     for (x = 0; x < GB_FRAME_WIDTH; ++x)
                     {
                         uint16_t sample = data[bufferIndex++];
-                        line[calc_line][index++] = ((sample >> 8) | ((sample & 0xff) << 8));
+                        line[calc_line][index++] = (sample << 8) | (sample >> 8);
                     }
                 }
                 if (sending_line != -1)
@@ -143,8 +140,8 @@ void write_gb_frame(const uint16_t *data, esplay_scale_option scale)
         case SCALE_STRETCH:
             outputHeight = LCD_HEIGHT;
             outputWidth = LCD_WIDTH;
-            x_ratio = (int)((GB_FRAME_WIDTH << 16) / outputWidth) + 1;
-            y_ratio = (int)((GB_FRAME_HEIGHT << 16) / outputHeight) + 1;
+            x_ratio = (GB_FRAME_WIDTH << 16) / outputWidth;
+            y_ratio = (GB_FRAME_HEIGHT << 16) / outputHeight;
 
             for (y = 0; y < outputHeight; y += LINE_COUNT)
             {

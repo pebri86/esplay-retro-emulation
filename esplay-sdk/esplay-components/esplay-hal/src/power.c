@@ -14,6 +14,7 @@ static bool input_battery_initialized = false;
 static float adc_value = 0.0f;
 static float forced_adc_value = 0.0f;
 static bool battery_monitor_enabled = true;
+static SemaphoreHandle_t battery_mutex = NULL;
 
 static bool system_initialized = false;
 
@@ -124,10 +125,16 @@ static void battery_monitor_task()
 	//confusing to the end user. This variable becomes true if the LiIon has indicated 'full'
 	//for a while, and it being true causes the 'full' icon to always show.
 	int fixFull=0;
+	
     while (true)
     {
-        if (battery_monitor_enabled)
-        {
+      if (battery_monitor_enabled)
+      {
+        battery_state battery;
+        if (xSemaphoreTake(battery_mutex, portMAX_DELAY) == pdTRUE) {
+            battery_level_read(&battery);
+            xSemaphoreGive(battery_mutex);
+        } else { printf("Error: Could not take battery mutex\n");         }
             battery_state battery;
             battery_level_read(&battery);
 
@@ -175,6 +182,12 @@ static void battery_monitor_task()
 #define DEFAULT_VREF 1100
 void battery_level_init()
 {
+    battery_mutex = xSemaphoreCreateMutex();
+    
+	if (battery_mutex == NULL) {
+	printf("Error: Could not create battery mutex\n");
+    }
+	
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[LED1], PIN_FUNC_GPIO);
     gpio_set_direction(LED1, GPIO_MODE_OUTPUT);
     gpio_set_direction(USB_PLUG_PIN, GPIO_MODE_INPUT);
@@ -199,56 +212,72 @@ void battery_level_init()
 
 void battery_level_read(battery_state *out_state)
 {
-    if (!input_battery_initialized)
-    {
-        printf("battery_level_read: not initilized.\n");
-        abort();
+    if (xSemaphoreTake(battery_mutex, portMAX_DELAY) == pdTRUE) {
+	    if (!input_battery_initialized)
+	    {
+	        printf("battery_level_read: not initilized.\n");
+	        abort();
+	    }
+	
+	    const int sampleCount = 8;
+	
+	    float adcSample = 0.0f;
+	    for (int i = 0; i < sampleCount; ++i)
+	    {
+	        //adcSample += adc1_to_voltage(ADC1_CHANNEL_0, &characteristics) * 0.001f;
+	        adcSample += esp_adc_cal_raw_to_voltage(adc1_get_raw(ADC_PIN), &characteristics) * 0.001f;
+	    }
+	    adcSample /= sampleCount;
+	
+	    if (adc_value == 0.0f)
+	    {
+	        adc_value = adcSample;
+	    }
+	    else
+	    {
+	        adc_value += adcSample;
+	        adc_value /= 2.0f;
+	    }
+	
+	    // Vo = (Vs * R2) / (R1 + R2)
+	    // Vs = Vo / R2 * (R1 + R2)
+	    const float R1 = 100000;
+	    const float R2 = 100000;
+	    const float Vo = adc_value;
+	    const float Vs = (forced_adc_value > 0.0f) ? (forced_adc_value) : (Vo / R2 * (R1 + R2));
+	
+	    const float FullVoltage = 4.1f;
+	    const float EmptyVoltage = 3.4f;
+	
+	    out_state->millivolts = (int)(Vs * 1000);
+	    out_state->percentage = (int)((Vs - EmptyVoltage) / (FullVoltage - EmptyVoltage) * 100.0f);
+	    if (out_state->percentage > 100)
+	        out_state->percentage = 100;
+	    if (out_state->percentage < 0)
+	        out_state->percentage = 0;
+          
+	    memcpy(out_state, out_state, sizeof(battery_state));   
+            xSemaphoreGive(battery_mutex);
+    } else {
+        printf("Error: Could not take battery mutex\n");
     }
-
-    const int sampleCount = 8;
-
-    float adcSample = 0.0f;
-    for (int i = 0; i < sampleCount; ++i)
-    {
-        //adcSample += adc1_to_voltage(ADC1_CHANNEL_0, &characteristics) * 0.001f;
-        adcSample += esp_adc_cal_raw_to_voltage(adc1_get_raw(ADC_PIN), &characteristics) * 0.001f;
-    }
-    adcSample /= sampleCount;
-
-    if (adc_value == 0.0f)
-    {
-        adc_value = adcSample;
-    }
-    else
-    {
-        adc_value += adcSample;
-        adc_value /= 2.0f;
-    }
-
-    // Vo = (Vs * R2) / (R1 + R2)
-    // Vs = Vo / R2 * (R1 + R2)
-    const float R1 = 100000;
-    const float R2 = 100000;
-    const float Vo = adc_value;
-    const float Vs = (forced_adc_value > 0.0f) ? (forced_adc_value) : (Vo / R2 * (R1 + R2));
-
-    const float FullVoltage = 4.1f;
-    const float EmptyVoltage = 3.4f;
-
-    out_state->millivolts = (int)(Vs * 1000);
-    out_state->percentage = (int)((Vs - EmptyVoltage) / (FullVoltage - EmptyVoltage) * 100.0f);
-    if (out_state->percentage > 100)
-        out_state->percentage = 100;
-    if (out_state->percentage < 0)
-        out_state->percentage = 0;
 }
-
 void battery_level_force_voltage(float volts)
 {
-    forced_adc_value = volts;
+    if (xSemaphoreTake(battery_mutex, portMAX_DELAY) == pdTRUE) {
+        forced_adc_value = volts;
+        xSemaphoreGive(battery_mutex);
+    } else {
+        printf("Error: Could not take battery mutex\n");
+    }
 }
 
 void battery_monitor_enabled_set(int value)
 {
-    battery_monitor_enabled = value;
+    if (xSemaphoreTake(battery_mutex, portMAX_DELAY) == pdTRUE) {
+        battery_monitor_enabled = value;
+        xSemaphoreGive(battery_mutex);
+    } else {
+        printf("Error: Could not take battery mutex\n");
+    }
 }

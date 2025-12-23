@@ -1,100 +1,62 @@
 #include "power.h"
-
 #include "freertos/FreeRTOS.h"
 #include "esp_system.h"
 #include "esp_event.h"
+#include "driver/gpio.h"
 #include "driver/rtc_io.h"
-#include "driver/adc.h"
 #include "esp_sleep.h"
-#include "esp_adc_cal.h"
 #include "gamepad.h"
 
-static esp_adc_cal_characteristics_t characteristics;
+// New ADC headers for 5.x
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+
 static bool input_battery_initialized = false;
 static float adc_value = 0.0f;
 static float forced_adc_value = 0.0f;
 static bool battery_monitor_enabled = true;
-
 static bool system_initialized = false;
+
+// ADC Handles for 5.5.1
+static adc_oneshot_unit_handle_t adc1_handle;
+static adc_cali_handle_t adc1_cali_handle = NULL;
+static bool do_calibration = false;
 
 void system_sleep()
 {
     printf("%s: Entered.\n", __func__);
 
-    // Wait for button release
     input_gamepad_state joystick;
     gamepad_read(&joystick);
 
     while (joystick.values[GAMEPAD_INPUT_MENU])
     {
-        vTaskDelay(1);
+        vTaskDelay(pdMS_TO_TICKS(10));
         gamepad_read(&joystick);
     }
 
-    // Configure button to wake
     printf("%s: Configuring deep sleep.\n", __func__);
-#if 1
+    
+    // Note: MENU must be a valid RTC-capable GPIO
     esp_err_t err = esp_sleep_enable_ext0_wakeup(MENU, 0);
-#else
-    const int ext_wakeup_pin_1 = ODROID_GAMEPAD_IO_MENU;
-    const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
-
-    esp_err_t err = esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask, ESP_EXT1_WAKEUP_ALL_LOW);
-#endif
+    
     if (err != ESP_OK)
     {
         printf("%s: esp_sleep_enable_ext0_wakeup failed.\n", __func__);
         abort();
     }
-    /*
-    err = rtc_gpio_pullup_en(MENU);
-    if (err != ESP_OK)
-    {
-        printf("%s: rtc_gpio_pullup_en failed.\n", __func__);
-        abort();
-    }
-*/
-    // Isolate GPIO12 pin from external circuits. This is needed for modules
-    // which have an external pull-up resistor on GPIO12 (such as ESP32-WROVER)
-    // to minimize current consumption.
-    //rtc_gpio_isolate(GPIO_NUM_12);
-#if 1
-    //rtc_gpio_isolate(GPIO_NUM_34);
-    //rtc_gpio_isolate(GPIO_NUM_35);
-    //rtc_gpio_isolate(GPIO_NUM_0);
-    //rtc_gpio_isolate(GPIO_NUM_39);
-    //rtc_gpio_isolate(GPIO_NUM_14);
-#endif
 
-    // Sleep
-    //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-
-    vTaskDelay(100);
+    vTaskDelay(pdMS_TO_TICKS(100));
     esp_deep_sleep_start();
 }
 
 void esplay_system_init()
 {
-    rtc_gpio_deinit(MENU);
-    //rtc_gpio_deinit(GPIO_NUM_14);
-
+    if (rtc_gpio_is_valid_gpio(MENU)) {
+        rtc_gpio_deinit(MENU);
+    }
     system_initialized = true;
-}
-
-static void print_char_val_type(esp_adc_cal_value_t val_type)
-{
-    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP)
-    {
-        printf("ADC: Characterized using Two Point Value\n");
-    }
-    else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF)
-    {
-        printf("ADC: Characterized using eFuse Vref\n");
-    }
-    else
-    {
-        printf("ADC: Characterized using Default Vref\n");
-    }
 }
 
 void system_led_set(int state)
@@ -115,15 +77,13 @@ charging_state getChargeStatus()
     }
 }
 
-static void battery_monitor_task()
+static void battery_monitor_task(void *pvParameters)
 {
     bool led_state = false;
     charging_state chrg;
-    int fullCtr=0;
-	//The LiIon charger sometimes goes back from 'full' to 'charging', which is
-	//confusing to the end user. This variable becomes true if the LiIon has indicated 'full'
-	//for a while, and it being true causes the 'full' icon to always show.
-	int fixFull=0;
+    int fullCtr = 0;
+    int fixFull = 0;
+
     while (true)
     {
         if (battery_monitor_enabled)
@@ -138,7 +98,7 @@ static void battery_monitor_task()
             }
             else if (led_state)
             {
-                led_state = 0;
+                led_state = false;
                 system_led_set(led_state);
             }
             else
@@ -167,80 +127,101 @@ static void battery_monitor_task()
                 }
             }
         }
-
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
-#define DEFAULT_VREF 1100
 void battery_level_init()
 {
-    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[LED1], PIN_FUNC_GPIO);
+    // GPIO Config
+    gpio_reset_pin(LED1);
     gpio_set_direction(LED1, GPIO_MODE_OUTPUT);
+    
+    gpio_reset_pin(USB_PLUG_PIN);
     gpio_set_direction(USB_PLUG_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(USB_PLUG_PIN, GPIO_PULLUP_ONLY);
+    
+    gpio_reset_pin(CHRG_STATE_PIN);
     gpio_set_direction(CHRG_STATE_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(CHRG_STATE_PIN, GPIO_PULLUP_ONLY);
-    adc1_config_width(ADC_WIDTH_12Bit);
-    adc1_config_channel_atten(ADC_PIN, ADC_ATTEN_11db);
 
-    //int vref_value = odroid_settings_VRef_get();
-    //esp_adc_cal_get_characteristics(vref_value, ADC_ATTEN_11db, ADC_WIDTH_12Bit, &characteristics);
+    // ADC Oneshot Unit Init
+    adc_oneshot_unit_init_cfg_t init_config1 = {
+        .unit_id = ADC_UNIT_1,
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
 
-    //Characterize ADC
-    //adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_BIT_12, DEFAULT_VREF, &characteristics);
-    print_char_val_type(val_type);
+    // ADC Channel Config
+    adc_oneshot_chan_cfg_t config = {
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+        .atten = ADC_ATTEN_DB_12, // Replaces ADC_ATTEN_11db
+    };
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_PIN, &config));
+
+    // Calibration Init (Curve Fitting is preferred for ESP32-S3/C3/v3)
+    adc_cali_line_fitting_config_t cali_config = {
+        .unit_id = ADC_UNIT_1,
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    esp_err_t cal_ret = adc_cali_create_scheme_line_fitting(&cali_config, &adc1_cali_handle);
+    if (cal_ret == ESP_OK) {
+        do_calibration = true;
+    }
 
     input_battery_initialized = true;
     battery_monitor_enabled_set(true);
-    xTaskCreatePinnedToCore(&battery_monitor_task, "battery_monitor", 1024, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&battery_monitor_task, "battery_monitor", 2048, NULL, 5, NULL, 1);
 }
 
 void battery_level_read(battery_state *out_state)
 {
     if (!input_battery_initialized)
     {
-        printf("battery_level_read: not initilized.\n");
+        printf("battery_level_read: not initialized.\n");
         abort();
     }
 
     const int sampleCount = 8;
+    int voltage_mv = 0;
+    int total_voltage_mv = 0;
 
-    float adcSample = 0.0f;
     for (int i = 0; i < sampleCount; ++i)
     {
-        //adcSample += adc1_to_voltage(ADC1_CHANNEL_0, &characteristics) * 0.001f;
-        adcSample += esp_adc_cal_raw_to_voltage(adc1_get_raw(ADC_PIN), &characteristics) * 0.001f;
+        int raw;
+        adc_oneshot_read(adc1_handle, ADC_PIN, &raw);
+        if (do_calibration) {
+            adc_cali_raw_to_voltage(adc1_cali_handle, raw, &voltage_mv);
+        } else {
+            // Fallback if calibration fails: raw * Vref / 4095
+            voltage_mv = (raw * 3300) / 4095;
+        }
+        total_voltage_mv += voltage_mv;
     }
-    adcSample /= sampleCount;
+    
+    float adcSample = (total_voltage_mv / (float)sampleCount) / 1000.0f;
 
-    if (adc_value == 0.0f)
-    {
+    if (adc_value == 0.0f) {
         adc_value = adcSample;
-    }
-    else
-    {
-        adc_value += adcSample;
-        adc_value /= 2.0f;
+    } else {
+        adc_value = (adc_value + adcSample) / 2.0f;
     }
 
-    // Vo = (Vs * R2) / (R1 + R2)
-    // Vs = Vo / R2 * (R1 + R2)
     const float R1 = 100000;
     const float R2 = 100000;
     const float Vo = adc_value;
-    const float Vs = (forced_adc_value > 0.0f) ? (forced_adc_value) : (Vo / R2 * (R1 + R2));
+    const float Vs = (forced_adc_value > 0.0f) ? (forced_adc_value) : (Vo * (R1 + R2) / R2);
 
     const float FullVoltage = 4.1f;
     const float EmptyVoltage = 3.4f;
 
     out_state->millivolts = (int)(Vs * 1000);
     out_state->percentage = (int)((Vs - EmptyVoltage) / (FullVoltage - EmptyVoltage) * 100.0f);
-    if (out_state->percentage > 100)
-        out_state->percentage = 100;
-    if (out_state->percentage < 0)
-        out_state->percentage = 0;
+    
+    if (out_state->percentage > 100) out_state->percentage = 100;
+    if (out_state->percentage < 0) out_state->percentage = 0;
+    
     out_state->state = getChargeStatus();
 }
 
@@ -251,5 +232,5 @@ void battery_level_force_voltage(float volts)
 
 void battery_monitor_enabled_set(int value)
 {
-    battery_monitor_enabled = value;
+    battery_monitor_enabled = (bool)value;
 }

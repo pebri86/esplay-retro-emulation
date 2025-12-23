@@ -7,10 +7,13 @@
 #include "esp_log.h"
 #include "driver/spi_master.h"
 #include "soc/gpio_struct.h"
+#include "soc/io_mux_reg.h"
+#include "soc/gpio_periph.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/rtc_io.h"
 #include "lcd.h"
+
 
 static const char *TAG = "hal-lcd";
 

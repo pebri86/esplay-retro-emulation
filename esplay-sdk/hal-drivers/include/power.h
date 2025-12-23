@@ -6,7 +6,7 @@
 // POWER
 #define USB_PLUG_PIN 32
 #define CHRG_STATE_PIN 33
-#define ADC_PIN ADC1_CHANNEL_3
+#define ADC_PIN ADC_CHANNEL_3
 
 typedef enum
 {

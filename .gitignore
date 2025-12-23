@@ -60,3 +60,5 @@ dkms.conf
 
 # misc
 *.stackdump
+
+managed_components/

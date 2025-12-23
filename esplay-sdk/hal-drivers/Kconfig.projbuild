@@ -1,0 +1,40 @@
+menu "Hardware configuration"
+
+choice EMULATOR_HARDWARE
+	prompt "Hardware to run on"
+	default ESPLAY_MICRO_HW
+	help
+		This emulator can run on various types of hardware. Select what you have here.
+
+config ESPLAY20_HW
+	bool "ESPlay 2.0 Hardware"
+
+config ESPLAY_MICRO_HW
+	bool "ESPlay Micro Hardware"
+
+config HW_CUSTOM
+	bool "Custom hardware"
+
+endchoice
+
+choice HW_LCD_TYPE_SEL
+	prompt "LCD type"
+	default HW_LCD_TYPE_ILI9341
+	depends on HW_CUSTOM
+
+config HW_LCD_TYPE_ILI9341
+	bool "ILI9341 LCD"
+
+config HW_LCD_TYPE_ILI9342
+	bool "ILI9342 LCD"
+
+endchoice
+
+config HW_LCD_TYPE
+	int
+	default 0 if ESPLAY20_HW
+  default 0 if ESPLAY_MICRO_HW
+	default 0 if HW_LCD_TYPE_ILI9341
+	default 1 if HW_LCD_TYPE_ILI9342
+
+endmenu

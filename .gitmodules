@@ -1,3 +1,6 @@
 [submodule "launcher/components/lvgl"]
 	path = launcher/components/lvgl
 	url = https://github.com/lvgl/lvgl.git
+[submodule "launcher/components/esp32-component-appfs"]
+	path = launcher/components/esp32-component-appfs
+	url = https://github.com/badgeteam/esp32-component-appfs.git

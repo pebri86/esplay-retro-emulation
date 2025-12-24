@@ -22,9 +22,10 @@
 /**********************
  *      TYPEDEFS
  **********************/
-typedef enum KeyType {
-	TypeInt,
-	TypeStr,
+typedef enum KeyType
+{
+    TypeInt,
+    TypeStr,
 } KeyType;
 
 /**********************
@@ -37,12 +38,10 @@ typedef enum KeyType {
 static nvs_handle handle;
 
 static KeyType settings_types[SettingMax] = {
-    TypeInt, TypeInt, TypeInt, TypeStr, TypeInt, TypeInt, TypeInt
-};
+    TypeInt, TypeInt, TypeInt, TypeStr, TypeInt, TypeInt, TypeInt};
 
 static char *settings_keys[SettingMax] = {
-    "volume", "backlight", "playmode", "rom_name", "scale", "wifi", "scale_alg"
-};
+    "volume", "backlight", "playmode", "rom_name", "scale", "wifi", "scale_alg"};
 
 /**********************
  *      MACROS
@@ -54,64 +53,70 @@ static char *settings_keys[SettingMax] = {
 // Initalize settings
 int settings_init(void)
 {
-	esp_err_t err = nvs_flash_init();
-	if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-		// NVS partition was truncated and needs to be erased
-		// Retry nvs_flash_init
-		if (nvs_flash_erase() != ESP_OK) {
-			return -1;
-		}
-		err = nvs_flash_init();
-	}
-	if (err != ESP_OK) {
-		return -1;
-	}
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        if (nvs_flash_erase() != ESP_OK)
+        {
+            return -1;
+        }
+        err = nvs_flash_init();
+    }
+    if (err != ESP_OK)
+    {
+        return -1;
+    }
 
-	if (nvs_open("esplay", NVS_READWRITE, &handle) != ESP_OK) {
-		return -1;
-	}
+    if (nvs_open("esplay", NVS_READWRITE, &handle) != ESP_OK)
+    {
+        return -1;
+    }
 
-	return 0;
+    return 0;
 }
 
 /// Initalize settings
 void settings_deinit(void)
 {
-	nvs_close(handle);
-	nvs_flash_deinit();
+    nvs_close(handle);
+    nvs_flash_deinit();
 }
 
 /// Load setting.
 /// Return 0 if loaded, false if not found
 int settings_load(Setting setting, int32_t *value_out)
 {
-	assert(setting < SettingMax && setting >= 0);
-	assert(settings_types[setting] == TypeInt);
-	return nvs_get_i32(handle, settings_keys[setting], value_out);
+    assert(setting < SettingMax && setting >= 0);
+    assert(settings_types[setting] == TypeInt);
+    return nvs_get_i32(handle, settings_keys[setting], value_out);
 }
 
 /// Save setting.
 /// Return 0 if saving was sucessfull
 int settings_save(Setting setting, int32_t value)
 {
-	assert(setting < SettingMax && setting >= 0);
-	assert(settings_types[setting] == TypeInt);
-	return nvs_set_i32(handle, settings_keys[setting], value);
+    assert(setting < SettingMax && setting >= 0);
+    assert(settings_types[setting] == TypeInt);
+    return nvs_set_i32(handle, settings_keys[setting], value);
 }
 
 /// Load string setting.
 /// Return char * if saving was sucessfull
 char *settings_load_str(Setting setting)
 {
-	size_t len;
-	assert(setting < SettingMax && setting >= 0);
-	assert(settings_types[setting] == TypeStr);
-	nvs_get_str(handle, settings_keys[setting], NULL, &len);
-	if (len > PATH_MAX) {
-		return NULL;
-	}
+    size_t len;
+    assert(setting < SettingMax && setting >= 0);
+    assert(settings_types[setting] == TypeStr);
+    nvs_get_str(handle, settings_keys[setting], NULL, &len);
+    if (len > PATH_MAX)
+    {
+        return NULL;
+    }
     char *value_out = malloc(len);
-    if(!value_out) return NULL;
+    if (!value_out)
+        return NULL;
     nvs_get_str(handle, settings_keys[setting], value_out, &len);
 
     return value_out;
@@ -121,9 +126,9 @@ char *settings_load_str(Setting setting)
 /// Return 0 if saving was sucessfull
 int settings_save_str(Setting setting, const char *value)
 {
-	assert(setting < SettingMax && setting >= 0);
-	assert(settings_types[setting] == TypeStr);
-	return nvs_set_str(handle, settings_keys[setting], value);
+    assert(setting < SettingMax && setting >= 0);
+    assert(settings_types[setting] == TypeStr);
+    return nvs_set_str(handle, settings_keys[setting], value);
 }
 
 /// Boot application from selected partition slot
@@ -176,7 +181,7 @@ char *system_util_GetFileName(const char *path)
         result[i] = path[fileNameStart + i];
     }
 
-    //printf("GetFileName: result='%s'\n", result);
+    // printf("GetFileName: result='%s'\n", result);
 
     return result;
 }
@@ -213,7 +218,7 @@ char *system_util_GetFileExtenstion(const char *path)
         result[i] = path[extensionStart + i];
     }
 
-    //printf("GetFileExtenstion: result='%s'\n", result);
+    // printf("GetFileExtenstion: result='%s'\n", result);
 
     return result;
 }
@@ -253,7 +258,7 @@ char *system_util_GetFileNameWithoutExtension(const char *path)
 
     free(fileName);
 
-    //printf("GetFileNameWithoutExtension: result='%s'\n", result);
+    // printf("GetFileNameWithoutExtension: result='%s'\n", result);
 
     return result;
 }

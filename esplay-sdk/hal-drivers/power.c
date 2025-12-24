@@ -37,10 +37,10 @@ void system_sleep()
     }
 
     printf("%s: Configuring deep sleep.\n", __func__);
-    
+
     // Note: MENU must be a valid RTC-capable GPIO
     esp_err_t err = esp_sleep_enable_ext0_wakeup(MENU, 0);
-    
+
     if (err != ESP_OK)
     {
         printf("%s: esp_sleep_enable_ext0_wakeup failed.\n", __func__);
@@ -53,7 +53,8 @@ void system_sleep()
 
 void esplay_system_init()
 {
-    if (rtc_gpio_is_valid_gpio(MENU)) {
+    if (rtc_gpio_is_valid_gpio(MENU))
+    {
         rtc_gpio_deinit(MENU);
     }
     system_initialized = true;
@@ -66,11 +67,11 @@ void system_led_set(int state)
 
 charging_state getChargeStatus()
 {
-    if(!gpio_get_level(USB_PLUG_PIN))
+    if (!gpio_get_level(USB_PLUG_PIN))
         return NO_CHRG;
     else
     {
-        if(!gpio_get_level(CHRG_STATE_PIN))
+        if (!gpio_get_level(CHRG_STATE_PIN))
             return CHARGING;
         else
             return FULL_CHARGED;
@@ -136,11 +137,11 @@ void battery_level_init()
     // GPIO Config
     gpio_reset_pin(LED1);
     gpio_set_direction(LED1, GPIO_MODE_OUTPUT);
-    
+
     gpio_reset_pin(USB_PLUG_PIN);
     gpio_set_direction(USB_PLUG_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(USB_PLUG_PIN, GPIO_PULLUP_ONLY);
-    
+
     gpio_reset_pin(CHRG_STATE_PIN);
     gpio_set_direction(CHRG_STATE_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(CHRG_STATE_PIN, GPIO_PULLUP_ONLY);
@@ -166,7 +167,8 @@ void battery_level_init()
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
     esp_err_t cal_ret = adc_cali_create_scheme_line_fitting(&cali_config, &adc1_cali_handle);
-    if (cal_ret == ESP_OK) {
+    if (cal_ret == ESP_OK)
+    {
         do_calibration = true;
     }
 
@@ -191,20 +193,26 @@ void battery_level_read(battery_state *out_state)
     {
         int raw;
         adc_oneshot_read(adc1_handle, ADC_PIN, &raw);
-        if (do_calibration) {
+        if (do_calibration)
+        {
             adc_cali_raw_to_voltage(adc1_cali_handle, raw, &voltage_mv);
-        } else {
+        }
+        else
+        {
             // Fallback if calibration fails: raw * Vref / 4095
             voltage_mv = (raw * 3300) / 4095;
         }
         total_voltage_mv += voltage_mv;
     }
-    
+
     float adcSample = (total_voltage_mv / (float)sampleCount) / 1000.0f;
 
-    if (adc_value == 0.0f) {
+    if (adc_value == 0.0f)
+    {
         adc_value = adcSample;
-    } else {
+    }
+    else
+    {
         adc_value = (adc_value + adcSample) / 2.0f;
     }
 
@@ -218,10 +226,12 @@ void battery_level_read(battery_state *out_state)
 
     out_state->millivolts = (int)(Vs * 1000);
     out_state->percentage = (int)((Vs - EmptyVoltage) / (FullVoltage - EmptyVoltage) * 100.0f);
-    
-    if (out_state->percentage > 100) out_state->percentage = 100;
-    if (out_state->percentage < 0) out_state->percentage = 0;
-    
+
+    if (out_state->percentage > 100)
+        out_state->percentage = 100;
+    if (out_state->percentage < 0)
+        out_state->percentage = 0;
+
     out_state->state = getChargeStatus();
 }
 

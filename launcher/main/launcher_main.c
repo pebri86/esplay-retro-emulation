@@ -34,23 +34,35 @@
 
 static const char *TAG = "launcher";
 
+#define ESPLAY_WIFI_SSID "ESPLAY"
+#define ESPLAY_WIFI_PASS "esplay123!"
+#define ESPLAY_WIFI_CHANNEL 6
+#define ESPLAY_MAX_STA_CONN 2
+
+#if CONFIG_ESP_GTK_REKEYING_ENABLE
+#define ESPLAY_GTK_REKEY_INTERVAL CONFIG_ESP_GTK_REKEY_INTERVAL
+#else
+#define ESPLAY_GTK_REKEY_INTERVAL 0
+#endif
+
 LV_IMG_DECLARE(apps_img);
 LV_IMG_DECLARE(games_img);
 LV_IMG_DECLARE(settings_img);
 
-
-enum {
+enum
+{
     LIST_APP = 0,
     LIST_GAMES,
     LIST_SETTINGS
 };
 
-typedef enum {
+typedef enum
+{
     PAGE_HOME = 0,
     PAGE_APP,
     PAGE_GAMES,
     PAGE_SETTINGS
-}current_page;
+} current_page;
 
 static lv_group_t *g;
 static lv_obj_t *scr;
@@ -69,19 +81,77 @@ static void lv_create_list(int type);
 #define REMOVE_FROM_GROUP 0
 #define ADD_TO_GROUP 1
 
-
-// Modern Event Handler for IDF 5.x
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                    int32_t event_id, void* event_data)
+static void wifi_event_handler(void *arg, esp_event_base_t event_base,
+                               int32_t event_id, void *event_data)
 {
-    if (event_id == WIFI_EVENT_AP_STACONNECTED) {
-        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
-        ESP_LOGI(TAG, "station " MACSTR " join, AID=%d", MAC2STR(event->mac), event->aid);
+    if (event_id == WIFI_EVENT_AP_STACONNECTED)
+    {
+        wifi_event_ap_staconnected_t *event = (wifi_event_ap_staconnected_t *)event_data;
+        ESP_LOGI(TAG, "station " MACSTR " join, AID=%d",
+                 MAC2STR(event->mac), event->aid);
+    }
+    else if (event_id == WIFI_EVENT_AP_STADISCONNECTED)
+    {
+        wifi_event_ap_stadisconnected_t *event = (wifi_event_ap_stadisconnected_t *)event_data;
+        ESP_LOGI(TAG, "station " MACSTR " leave, AID=%d, reason=%d",
+                 MAC2STR(event->mac), event->aid, event->reason);
     }
 }
 
+void wifi_init_softap(void)
+{
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_ap();
 
-static void lv_keypad_read(lv_indev_drv_t * drv, lv_indev_data_t*data)
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                                                        ESP_EVENT_ANY_ID,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        NULL));
+
+    wifi_config_t wifi_config = {
+        .ap = {
+            .ssid = ESPLAY_WIFI_SSID,
+            .ssid_len = strlen(ESPLAY_WIFI_SSID),
+            .channel = ESPLAY_WIFI_CHANNEL,
+            .password = ESPLAY_WIFI_PASS,
+            .max_connection = ESPLAY_MAX_STA_CONN,
+#ifdef CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT
+            .authmode = WIFI_AUTH_WPA3_PSK,
+            .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
+#else /* CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT */
+            .authmode = WIFI_AUTH_WPA2_PSK,
+#endif
+            .pmf_cfg = {
+                .required = true,
+            },
+#ifdef CONFIG_ESP_WIFI_BSS_MAX_IDLE_SUPPORT
+            .bss_max_idle_cfg = {
+                .period = WIFI_AP_DEFAULT_MAX_IDLE_PERIOD,
+                .protected_keep_alive = 1,
+            },
+#endif
+            .gtk_rekey_interval = ESPLAY_GTK_REKEY_INTERVAL,
+        },
+    };
+    if (strlen(ESPLAY_WIFI_PASS) == 0)
+    {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    }
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
+             ESPLAY_WIFI_SSID, ESPLAY_WIFI_PASS, ESPLAY_WIFI_CHANNEL);
+}
+
+static void lv_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     input_gamepad_state gamepad_state;
     gamepad_read(&gamepad_state);
@@ -121,7 +191,6 @@ static void lv_keypad_read(lv_indev_drv_t * drv, lv_indev_data_t*data)
         data->state = LV_INDEV_STATE_RELEASED;
         data->key = 0;
     }
-
 }
 
 static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
@@ -130,9 +199,9 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
     int offsetx2 = area->x2;
     int offsety1 = area->y1;
     int offsety2 = area->y2;
-    
+
     lcd_draw(offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
-    
+
     lv_disp_flush_ready(drv);
 }
 
@@ -142,32 +211,37 @@ static void increase_lvgl_tick(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
-static void kchal_set_new_app(int fd) {
-	if (fd<0 || fd>255) {
-		REG_WRITE(RTC_CNTL_STORE0_REG, 0);
-	} else {
-		REG_WRITE(RTC_CNTL_STORE0_REG, 0xA5000000|fd);
-	}
+static void kchal_set_new_app(int fd)
+{
+    if (fd < 0 || fd > 255)
+    {
+        REG_WRITE(RTC_CNTL_STORE0_REG, 0);
+    }
+    else
+    {
+        REG_WRITE(RTC_CNTL_STORE0_REG, 0xA5000000 | fd);
+    }
 }
 
 static void get_time(char *buffer, int size)
 {
     time_t now;
     struct tm timeinfo;
-                
+
     time(&now);
     setenv("TZ", "UTC+8", 1);
     tzset();
-                
+
     localtime_r(&now, &timeinfo);
     strftime(buffer, size, "%H:%M", &timeinfo);
 }
 
-static void settings_mbox_event_cb(lv_event_t * e)
+static void settings_mbox_event_cb(lv_event_t *e)
 {
-    lv_obj_t * obj = lv_event_get_current_target(e);
+    lv_obj_t *obj = lv_event_get_current_target(e);
     char *btn = lv_msgbox_get_active_btn_text(obj);
-    if(strcmp(btn, "Close") == 0) {
+    if (strcmp(btn, "Close") == 0)
+    {
         lv_msgbox_close(obj);
         lv_create_list(LIST_SETTINGS);
     }
@@ -176,26 +250,32 @@ static void settings_mbox_event_cb(lv_event_t * e)
 static void lv_show_battery(void)
 {
     lv_group_remove_all_objs(g);
-    static const char * btns[] = {"Close",""};
-    lv_obj_t * mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_BATTERY_2 " Battery", "Battery", btns, false);
-    lv_obj_t * label = lv_msgbox_get_text(mbox1);
+    static const char *btns[] = {"Close", ""};
+    lv_obj_t *mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_BATTERY_2 " Battery", "Battery", btns, false);
+    lv_obj_t *label = lv_msgbox_get_text(mbox1);
     battery_state bat;
     battery_level_read(&bat);
     char *charge_status;
-    switch(bat.state) {
-        case NO_CHRG: charge_status = "Discharging";
+    switch (bat.state)
+    {
+    case NO_CHRG:
+        charge_status = "Discharging";
         break;
-        case CHARGING: charge_status = "Charging";
+    case CHARGING:
+        charge_status = "Charging";
         break;
-        case FULL_CHARGED: charge_status = "Fully Charge";
+    case FULL_CHARGED:
+        charge_status = "Fully Charge";
         break;
-        default: charge_status = "Unknown";
+    default:
+        charge_status = "Unknown";
         break;
     }
     lv_label_set_text_fmt(label, "Status\n"
-                        "%s\n"
-                        "Voltage %d mV\n"
-                        "Percentage %d%%", charge_status, bat.millivolts, bat.percentage);
+                                 "%s\n"
+                                 "Voltage %d mV\n"
+                                 "Percentage %d%%",
+                          charge_status, bat.millivolts, bat.percentage);
     lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_center(mbox1);
 }
@@ -203,14 +283,15 @@ static void lv_show_battery(void)
 static void lv_show_about(void)
 {
     lv_group_remove_all_objs(g);
-    static const char * btns[] = {"Close",""};
-    lv_obj_t * mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_SETTINGS " About ESPlay", "Launcher", btns, false);
-    lv_obj_t * label = lv_msgbox_get_text(mbox1);
+    static const char *btns[] = {"Close", ""};
+    lv_obj_t *mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_SETTINGS " About ESPlay", "Launcher", btns, false);
+    lv_obj_t *label = lv_msgbox_get_text(mbox1);
     esp_app_desc_t *desc = esp_ota_get_app_description();
     lv_label_set_text_fmt(label, "Launcher\n"
-                        "%s\n"
-                        "IDF Ver. %s\n"
-                        "Built %s %s", desc->version, desc->idf_ver, desc->date, desc->time);
+                                 "%s\n"
+                                 "IDF Ver. %s\n"
+                                 "Built %s %s",
+                          desc->version, desc->idf_ver, desc->date, desc->time);
     lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_center(mbox1);
 }
@@ -220,46 +301,57 @@ static void lv_show_storage(void)
     uint32_t tot;
     uint32_t free;
     sdcard_get_free_space(&tot, &free);
-    
+
     lv_group_remove_all_objs(g);
-    static const char * btns[] = {"Close",""};
-    lv_obj_t * mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_SD_CARD " Storage", "Storage", btns, false);
-    lv_obj_t * label = lv_msgbox_get_text(mbox1);
+    static const char *btns[] = {"Close", ""};
+    lv_obj_t *mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_SD_CARD " Storage", "Storage", btns, false);
+    lv_obj_t *label = lv_msgbox_get_text(mbox1);
     lv_label_set_text_fmt(label, "SD Card\n"
-                        "Total %5lu MB\n"
-                        "Free %5lu MB\n\n"
-                        "Internal Appfs\n"
-                        "Free %d KB\n", (unsigned long)tot/1024, (unsigned long)free/1024, appfsGetFreeMem()/1024);
+                                 "Total %5lu MB\n"
+                                 "Free %5lu MB\n\n"
+                                 "Internal Appfs\n"
+                                 "Free %d KB\n",
+                          (unsigned long)tot / 1024, (unsigned long)free / 1024, appfsGetFreeMem() / 1024);
     lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_center(mbox1);
 }
 
-static void list_items_event_handler(lv_event_t *e) 
+static void list_items_event_handler(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t *obj = lv_event_get_target(e);
-    if (code == LV_EVENT_KEY) {
+    if (code == LV_EVENT_KEY)
+    {
         uint32_t key = lv_indev_get_key(lv_indev_get_act());
         switch (key)
         {
-            case LV_KEY_DOWN: 
-                lv_group_focus_next(lv_group_get_default());
-                break;
-            case LV_KEY_UP: 
-                lv_group_focus_prev(lv_group_get_default());
-                break;
-            default:
-                break;
+        case LV_KEY_DOWN:
+            lv_group_focus_next(lv_group_get_default());
+            break;
+        case LV_KEY_UP:
+            lv_group_focus_prev(lv_group_get_default());
+            break;
+        default:
+            break;
         }
-    } else if (code == LV_EVENT_CLICKED) {
+    }
+    else if (code == LV_EVENT_CLICKED)
+    {
         const char *name = lv_list_get_btn_text(lv_event_get_user_data(e), obj);
-        if (strcmp(name, "Back") == 0) lv_create_homescreen();
-        else if (strcmp(name, "Wifi") == 0) ESP_LOGI(TAG, "%s", name);
-        else if (strcmp(name, "Volume") == 0) ESP_LOGI(TAG, "%s", name);
-        else if (strcmp(name, "Storage") == 0) lv_show_storage();
-        else if (strcmp(name, "Battery") == 0) lv_show_battery();
-        else if (strcmp(name, "About") == 0) lv_show_about();
-        else {
+        if (strcmp(name, "Back") == 0)
+            lv_create_homescreen();
+        else if (strcmp(name, "Wifi") == 0)
+            ESP_LOGI(TAG, "%s", name);
+        else if (strcmp(name, "Volume") == 0)
+            ESP_LOGI(TAG, "%s", name);
+        else if (strcmp(name, "Storage") == 0)
+            lv_show_storage();
+        else if (strcmp(name, "Battery") == 0)
+            lv_show_battery();
+        else if (strcmp(name, "About") == 0)
+            lv_show_about();
+        else
+        {
             int fd = appfsOpen(name);
             kchal_set_new_app(fd);
             esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
@@ -271,65 +363,80 @@ static void list_items_event_handler(lv_event_t *e)
 
 typedef int (*fc_filtercb_t)(const char *name, void *filterarg);
 
-int filechooser_filter_glob(const char *name, void *filterarg) {
-	const char *glob=(const char *)filterarg;
-	for (const char *p=glob; p!=NULL; p=strchr(p, ',')) {
-		char ppart[128];
-		if (*p==',') p++; //skip over comma
-		//Copy part of string to non-const array
-		strncpy(ppart, p, sizeof(ppart));
-		//Zero-terminate at ','. Make sure that worst-case it's terminated at the end of the local
-		//array.
-		char *pend=strchr(ppart, ',');
-		if (pend!=NULL) *pend=0; else ppart[sizeof(ppart)-1]=0;
-		//Try to match
-		if (fnmatch(ppart, name, FNM_CASEFOLD)==0) {
-			return 1;
-		}
-	}
-	return 0;
+int filechooser_filter_glob(const char *name, void *filterarg)
+{
+    const char *glob = (const char *)filterarg;
+    for (const char *p = glob; p != NULL; p = strchr(p, ','))
+    {
+        char ppart[128];
+        if (*p == ',')
+            p++; // skip over comma
+        // Copy part of string to non-const array
+        strncpy(ppart, p, sizeof(ppart));
+        // Zero-terminate at ','. Make sure that worst-case it's terminated at the end of the local
+        // array.
+        char *pend = strchr(ppart, ',');
+        if (pend != NULL)
+            *pend = 0;
+        else
+            ppart[sizeof(ppart) - 1] = 0;
+        // Try to match
+        if (fnmatch(ppart, name, FNM_CASEFOLD) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
 }
 
-static int nextFdFileForFilter(int fd, fc_filtercb_t filter, void *filterarg, const char **name) {
-	while(1) {
-		fd=appfsNextEntry(fd);
-		if (fd==APPFS_INVALID_FD) break;
-		appfsEntryInfo(fd, name, NULL);
-		if (filter(*name, filterarg)) return fd;
-	}
-	return APPFS_INVALID_FD;
+static int nextFdFileForFilter(int fd, fc_filtercb_t filter, void *filterarg, const char **name)
+{
+    while (1)
+    {
+        fd = appfsNextEntry(fd);
+        if (fd == APPFS_INVALID_FD)
+            break;
+        appfsEntryInfo(fd, name, NULL);
+        if (filter(*name, filterarg))
+            return fd;
+    }
+    return APPFS_INVALID_FD;
 }
 
 /*
 static void remove_ext(char *fn) {
-	int dot=-1;
-	for (int i=0; i<strlen(fn); i++) {
-		if (fn[i]=='.') dot=i;
-	}
-	if (dot!=-1) fn[dot]=0;
+    int dot=-1;
+    for (int i=0; i<strlen(fn); i++) {
+        if (fn[i]=='.') dot=i;
+    }
+    if (dot!=-1) fn[dot]=0;
 }
 */
 
-static void lv_add_file_list(lv_obj_t *list, void* extention) {
-    int fd=APPFS_INVALID_FD;
+static void lv_add_file_list(lv_obj_t *list, void *extention)
+{
+    int fd = APPFS_INVALID_FD;
     int apps = 0;
-    while(1) {
+    while (1)
+    {
         const char *name;
-        fd=nextFdFileForFilter(fd, filechooser_filter_glob, extention, &name);
-        if (fd==APPFS_INVALID_FD) break;
+        fd = nextFdFileForFilter(fd, filechooser_filter_glob, extention, &name);
+        if (fd == APPFS_INVALID_FD)
+            break;
         appfsEntryInfo(fd, &name, NULL);
         lv_obj_t *btn = lv_list_add_btn(list, LV_SYMBOL_FILE, name);
-        if(apps == 0)
+        if (apps == 0)
             lv_group_focus_obj(btn);
         lv_obj_add_event_cb(btn, list_items_event_handler, LV_EVENT_ALL, list);
         apps++;
     }
 }
 
-typedef struct esplay_settings_t{
+typedef struct esplay_settings_t
+{
     const char *icon;
     const char *text;
-}esplay_settings_t;
+} esplay_settings_t;
 
 static void lv_add_setting_list(lv_obj_t *list)
 {
@@ -338,65 +445,77 @@ static void lv_add_setting_list(lv_obj_t *list)
         {LV_SYMBOL_VOLUME_MAX, "Volume"},
         {LV_SYMBOL_SD_CARD, "Storage"},
         {LV_SYMBOL_BATTERY_2, "Battery"},
-        {LV_SYMBOL_SETTINGS, "About"}
-    };
-    
-    for(int i=0; i<5;i++) {
+        {LV_SYMBOL_SETTINGS, "About"}};
+
+    for (int i = 0; i < 5; i++)
+    {
         lv_obj_t *btn = lv_list_add_btn(list, set_list[i].icon, set_list[i].text);
         lv_obj_add_event_cb(btn, list_items_event_handler, LV_EVENT_ALL, list);
-        if(i==0) lv_group_focus_obj(btn);
+        if (i == 0)
+            lv_group_focus_obj(btn);
     }
 }
 
 static void lv_populate_list_items(lv_obj_t *list, int type)
 {
-    switch(type) {
-        case LIST_APP:
+    switch (type)
+    {
+    case LIST_APP:
         lv_add_file_list(list, "*.app");
         break;
-        case LIST_GAMES:
+    case LIST_GAMES:
         lv_add_file_list(list, "*.emu,*.game");
         break;
-        case LIST_SETTINGS:
+    case LIST_SETTINGS:
         lv_add_setting_list(list);
         break;
-        default:
+    default:
         break;
     }
 }
 
-static void btn_event_handler(lv_event_t * e)
+static void btn_event_handler(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t * obj = lv_event_get_target(e);
-    if (code == LV_EVENT_KEY) {
+    lv_obj_t *obj = lv_event_get_target(e);
+    if (code == LV_EVENT_KEY)
+    {
         uint32_t key = lv_indev_get_key(lv_indev_get_act());
         switch (key)
         {
-            case LV_KEY_RIGHT: 
-                lv_group_focus_next(lv_group_get_default());
-                break;
-            case LV_KEY_LEFT: 
-                lv_group_focus_prev(lv_group_get_default());
-                break;
-            default:
-                break;
+        case LV_KEY_RIGHT:
+            lv_group_focus_next(lv_group_get_default());
+            break;
+        case LV_KEY_LEFT:
+            lv_group_focus_prev(lv_group_get_default());
+            break;
+        default:
+            break;
         }
-    } else if (code == LV_EVENT_FOCUSED) {
-        if(obj == btn1)
+    }
+    else if (code == LV_EVENT_FOCUSED)
+    {
+        if (obj == btn1)
             lv_label_set_text(menu_selected, "Application");
-        else if(obj == btn2)
+        else if (obj == btn2)
             lv_label_set_text(menu_selected, "Games");
-        else if(obj == btn3)
+        else if (obj == btn3)
             lv_label_set_text(menu_selected, "Settings");
         else
             printf("not selecting menu\n");
-    } else if (code == LV_EVENT_CLICKED) {
-        if (obj == btn1) {
+    }
+    else if (code == LV_EVENT_CLICKED)
+    {
+        if (obj == btn1)
+        {
             lv_create_list(LIST_APP);
-        } else if (obj == btn2) {
+        }
+        else if (obj == btn2)
+        {
             lv_create_list(LIST_GAMES);
-        } else if (obj == btn3) {
+        }
+        else if (obj == btn3)
+        {
             lv_create_list(LIST_SETTINGS);
         }
     }
@@ -416,23 +535,24 @@ static void lv_create_list(int type)
     lv_obj_t *btn = lv_list_add_btn(list, LV_SYMBOL_LEFT, "Back");
     lv_obj_add_event_cb(btn, list_items_event_handler, LV_EVENT_ALL, list);
 
-    switch(type) {
-        case LIST_APP: 
+    switch (type)
+    {
+    case LIST_APP:
         lv_label_set_text(title, "Application");
         lv_populate_list_items(list, type);
         cpage = PAGE_APP;
         break;
-        case LIST_GAMES:
+    case LIST_GAMES:
         lv_label_set_text(title, "Games");
         lv_populate_list_items(list, type);
         cpage = PAGE_GAMES;
         break;
-        case LIST_SETTINGS:
+    case LIST_SETTINGS:
         lv_label_set_text(title, "Settings");
         lv_populate_list_items(list, type);
         cpage = PAGE_SETTINGS;
         break;
-        default:
+    default:
         break;
     }
 }
@@ -441,20 +561,20 @@ static void lv_create_homescreen()
 {
     lv_group_remove_all_objs(g);
     lv_obj_clean(scr);
-    
+
     char buffer[64];
     get_time(buffer, sizeof(buffer));
-    
+
     lv_obj_set_style_bg_color(scr, lv_palette_darken(LV_PALETTE_BLUE, 5), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_grad_color(scr, lv_palette_lighten(LV_PALETTE_BLUE, 3), 0);
     lv_obj_set_style_bg_grad_dir(scr, LV_GRAD_DIR_VER, 0);
-    
+
     time_text = lv_label_create(scr);
     lv_label_set_text(time_text, buffer);
     lv_obj_set_style_text_color(time_text, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
     lv_obj_align(time_text, LV_ALIGN_TOP_LEFT, 5, 0);
-    
+
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "ESPLAY 3");
     lv_obj_set_style_text_color(title, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
@@ -464,18 +584,18 @@ static void lv_create_homescreen()
     lv_label_set_text(battery, LV_SYMBOL_BATTERY_FULL);
     lv_obj_set_style_text_color(battery, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
     lv_obj_align(battery, LV_ALIGN_TOP_RIGHT, 0, 0);
-    
+
     menu_selected = lv_label_create(scr);
     lv_label_set_text(menu_selected, "APPLICATION");
     lv_obj_set_style_text_color(menu_selected, lv_palette_lighten(LV_PALETTE_YELLOW, 4), 0);
     lv_obj_align(menu_selected, LV_ALIGN_TOP_MID, 0, 40);
-    
+
     /*Init the style for the default state*/
     static lv_style_t style;
     lv_style_init(&style);
 
     lv_style_set_radius(&style, 3);
-    //lv_style_set_text_font(&style, &lv_font_montserrat_28);
+    // lv_style_set_text_font(&style, &lv_font_montserrat_28);
     lv_style_set_bg_opa(&style, LV_OPA_20);
     lv_style_set_bg_color(&style, lv_palette_main(LV_PALETTE_BLUE));
     lv_style_set_bg_grad_color(&style, lv_palette_darken(LV_PALETTE_BLUE, 2));
@@ -494,7 +614,7 @@ static void lv_create_homescreen()
 
     lv_style_set_text_color(&style, lv_color_white());
     lv_style_set_pad_all(&style, 10);
-    
+
     btn1 = lv_btn_create(scr);
     lv_obj_t *img = lv_img_create(btn1);
     lv_img_set_src(img, &apps_img);
@@ -503,10 +623,10 @@ static void lv_create_homescreen()
     lv_obj_set_style_bg_opa(btn1, LV_OPA_60, LV_STATE_FOCUSED);
     lv_obj_set_style_bg_color(btn1, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
     lv_obj_set_style_bg_grad_color(btn1, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
-    lv_obj_set_size(btn1, 80 ,80);
+    lv_obj_set_size(btn1, 80, 80);
     lv_obj_align(btn1, LV_ALIGN_LEFT_MID, 10, 0);
     lv_obj_add_event_cb(btn1, btn_event_handler, LV_EVENT_ALL, NULL);
-    
+
     btn2 = lv_btn_create(scr);
     img = lv_img_create(btn2);
     lv_img_set_src(img, &games_img);
@@ -515,10 +635,10 @@ static void lv_create_homescreen()
     lv_obj_set_style_bg_opa(btn2, LV_OPA_60, LV_STATE_FOCUSED);
     lv_obj_set_style_bg_color(btn2, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
     lv_obj_set_style_bg_grad_color(btn2, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
-    lv_obj_set_size(btn2, 80 ,80);
+    lv_obj_set_size(btn2, 80, 80);
     lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_event_cb(btn2, btn_event_handler, LV_EVENT_ALL, NULL);
-    
+
     btn3 = lv_btn_create(scr);
     img = lv_img_create(btn3);
     lv_img_set_src(img, &settings_img);
@@ -527,10 +647,10 @@ static void lv_create_homescreen()
     lv_obj_set_style_bg_opa(btn3, LV_OPA_60, LV_STATE_FOCUSED);
     lv_obj_set_style_bg_color(btn3, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
     lv_obj_set_style_bg_grad_color(btn3, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
-    lv_obj_set_size(btn3, 80 ,80);
+    lv_obj_set_size(btn3, 80, 80);
     lv_obj_align(btn3, LV_ALIGN_RIGHT_MID, -10, 0);
     lv_obj_add_event_cb(btn3, btn_event_handler, LV_EVENT_ALL, NULL);
-    
+
     cpage = PAGE_HOME;
 }
 
@@ -543,7 +663,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Initialize gamepad");
     gamepad_init();
     ESP_ERROR_CHECK(appfsInit(0x43, 3));
-	ESP_LOGI(TAG, "Appfs inited");
+    ESP_LOGI(TAG, "Appfs inited");
 
     static lv_disp_draw_buf_t disp_buf;
     static lv_disp_drv_t disp_drv;
@@ -571,7 +691,7 @@ void app_main(void)
     static lv_indev_drv_t indev_drv;
     lv_indev_drv_init(&indev_drv);
     indev_drv.type = LV_INDEV_TYPE_KEYPAD;
-    indev_drv.read_cb = lv_keypad_read; 
+    indev_drv.read_cb = lv_keypad_read;
 
     /*Register the driver in LVGL and save the created input device object*/
     my_indev = lv_indev_drv_register(&indev_drv);
@@ -580,12 +700,11 @@ void app_main(void)
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
     const esp_timer_create_args_t lvgl_tick_timer_args = {
         .callback = &increase_lvgl_tick,
-        .name = "lvgl_tick"
-    };
+        .name = "lvgl_tick"};
     esp_timer_handle_t lvgl_tick_timer = NULL;
     ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000));
-    
+
     scr = lv_obj_create(NULL);
     lv_scr_load(scr);
     g = lv_group_create();
@@ -594,62 +713,51 @@ void app_main(void)
     lv_create_homescreen();
 
     sdcard_open("/sd");
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    wifi_config_t ap_config = {
-        .ap = {
-            .ssid = "esplay",
-            .authmode = WIFI_AUTH_OPEN,
-            .max_connection = 2,
-            .beacon_interval = 200}};
-    uint8_t channel = 5;
-    ap_config.ap.channel = channel;
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
+
+    ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
+    wifi_init_softap();
+
     /* Start the file server */
     ESP_ERROR_CHECK(start_file_server("/sd"));
-    ESP_LOGI(TAG, "Ready, AP on channel %d", (int)channel);
-    
+
     TickType_t xLast = xTaskGetTickCount();
-    while (1) {
+    while (1)
+    {
         // raise the task priority of LVGL and/or reduce the handler period can improve the performance
         vTaskDelay(pdMS_TO_TICKS(10));
         // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
         lv_timer_handler();
-        
+
         TickType_t xNow = xTaskGetTickCount();
-        if((xNow - xLast) > pdMS_TO_TICKS(2000))
-        {   
-            if(cpage == PAGE_HOME) {
+        if ((xNow - xLast) > pdMS_TO_TICKS(2000))
+        {
+            if (cpage == PAGE_HOME)
+            {
                 char buffer[64];
                 get_time(buffer, sizeof(buffer));
                 lv_label_set_text(time_text, buffer);
-                
+
                 battery_state bat;
                 battery_level_read(&bat);
-                
-                if(bat.state == FULL_CHARGED || bat.state == CHARGING) 
+
+                if (bat.state == FULL_CHARGED || bat.state == CHARGING)
                     lv_label_set_text(battery, LV_SYMBOL_CHARGE);
-                else {
-                    if(bat.percentage <= 100 && bat.percentage > 75 )
+                else
+                {
+                    if (bat.percentage <= 100 && bat.percentage > 75)
                         lv_label_set_text(battery, LV_SYMBOL_BATTERY_FULL);
-                    else if(bat.percentage <= 75 && bat.percentage > 50 )
+                    else if (bat.percentage <= 75 && bat.percentage > 50)
                         lv_label_set_text(battery, LV_SYMBOL_BATTERY_3);
-                    else if(bat.percentage <= 50 && bat.percentage > 25 )
+                    else if (bat.percentage <= 50 && bat.percentage > 25)
                         lv_label_set_text(battery, LV_SYMBOL_BATTERY_2);
-                    else if(bat.percentage <= 25 && bat.percentage > 5 )
+                    else if (bat.percentage <= 25 && bat.percentage > 5)
                         lv_label_set_text(battery, LV_SYMBOL_BATTERY_1);
-                    else 
+                    else
                         lv_label_set_text(battery, LV_SYMBOL_BATTERY_EMPTY);
                 }
             }
-                
+
             xLast = xNow;
         }
-        
     }
 }

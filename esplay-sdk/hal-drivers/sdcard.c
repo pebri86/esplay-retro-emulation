@@ -88,14 +88,14 @@ void sdcard_get_free_space(uint32_t *tot, uint32_t *free)
         *free = fre_sect / 2;
 
         /* Print the free space (assuming 512 bytes/sector) */
-        //ESP_LOGD(TAG, "%10lu KiB total drive space. %10lu KiB available.", *tot, *free);
+        // ESP_LOGD(TAG, "%10lu KiB total drive space. %10lu KiB available.", *tot, *free);
     }
 }
 
 int sdcard_files_get(const char *path, const char *extension, char ***filesOut)
 {
     const int MAX_FILES = 1024;
-    const uint32_t MALLOC_CAPS = MALLOC_CAP_DEFAULT; //MALLOC_CAP_SPIRAM
+    const uint32_t MALLOC_CAPS = MALLOC_CAP_DEFAULT; // MALLOC_CAP_SPIRAM
 
     int count = 0;
     char **result = (char **)malloc(MAX_FILES * sizeof(void *));
@@ -106,7 +106,7 @@ int sdcard_files_get(const char *path, const char *extension, char ***filesOut)
     if (dir == NULL)
     {
         printf("opendir failed.\n");
-        //abort();
+        // abort();
         return 0;
     }
 
@@ -143,7 +143,7 @@ int sdcard_files_get(const char *path, const char *extension, char ***filesOut)
                 if (strcmp(temp, extension) == 0)
                 {
                     result[count] = (char *)malloc(len + 1);
-                    //printf("%s: allocated %p\n", __func__, result[count]);
+                    // printf("%s: allocated %p\n", __func__, result[count]);
 
                     if (!result[count])
                     {
@@ -173,11 +173,11 @@ void sdcard_files_free(char **files, int count)
 {
     for (int i = 0; i < count; ++i)
     {
-        //printf("%s: freeing item %p\n", __func__, files[i]);
+        // printf("%s: freeing item %p\n", __func__, files[i]);
         free(files[i]);
     }
 
-    //printf("%s: freeing array %p\n", __func__, files);
+    // printf("%s: freeing array %p\n", __func__, files);
     free(files);
 }
 
@@ -333,7 +333,7 @@ char *sdcard_create_savefile_path(const char *base_path, const char *fileName)
     if (!fileName)
         abort();
 
-    //printf("%s: base_path='%s', fileName='%s'\n", __func__, base_path, fileName);
+    // printf("%s: base_path='%s', fileName='%s'\n", __func__, base_path, fileName);
 
     // Determine folder
     char *extension = fileName + strlen(fileName); // place at NULL terminator
@@ -353,7 +353,7 @@ char *sdcard_create_savefile_path(const char *base_path, const char *fileName)
         abort();
     }
 
-    //printf("%s: extension='%s'\n", __func__, extension);
+    // printf("%s: extension='%s'\n", __func__, extension);
 
     const char *DATA_PATH = "/esplay/data/";
     const char *SAVE_EXTENSION = ".sav";

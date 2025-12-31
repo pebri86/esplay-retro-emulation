@@ -45,9 +45,9 @@ static const char *TAG = "launcher";
 #define ESPLAY_GTK_REKEY_INTERVAL 0
 #endif
 
-LV_IMG_DECLARE(apps_img);
-LV_IMG_DECLARE(games_img);
-LV_IMG_DECLARE(settings_img);
+LV_IMG_DECLARE(apps);
+LV_IMG_DECLARE(games);
+LV_IMG_DECLARE(settings);
 
 enum
 {
@@ -64,19 +64,29 @@ typedef enum
     PAGE_SETTINGS
 } current_page;
 
-static lv_group_t *g;
-static lv_obj_t *scr;
-static lv_obj_t *btn1;
-static lv_obj_t *btn2;
-static lv_obj_t *btn3;
-static lv_obj_t *menu_selected;
-static lv_obj_t *battery;
-static lv_obj_t *time_text;
-static lv_indev_t *my_indev;
-static current_page cpage = PAGE_HOME;
+typedef struct
+{
+    lv_group_t *input_group;
+    lv_obj_t *screen;
+    lv_obj_t *home_btn1;
+    lv_obj_t *home_btn2;
+    lv_obj_t *home_btn3;
+    lv_obj_t *menu_selected_label;
+    lv_obj_t *battery_label;
+    lv_obj_t *time_label;
+    lv_indev_t *input_device;
+    current_page current_page;
+} ui_state_t;
+
+static ui_state_t ui_state = {0};
 static void lv_create_homescreen();
+
 static void lv_create_list(int type);
 
+static void init_system_components(void);
+static void init_lvgl_display(void);
+static void init_ui(void);
+static void run_main_loop(void);
 #define LVGL_TICK_PERIOD_MS 2
 #define REMOVE_FROM_GROUP 0
 #define ADD_TO_GROUP 1
@@ -151,10 +161,13 @@ void wifi_init_softap(void)
              ESPLAY_WIFI_SSID, ESPLAY_WIFI_PASS, ESPLAY_WIFI_CHANNEL);
 }
 
-static void lv_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
+static void lv_keypad_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
     input_gamepad_state gamepad_state;
     gamepad_read(&gamepad_state);
+
+    // Default to released
+    data->state = LV_INDEV_STATE_RELEASED;
 
     if (gamepad_state.values[GAMEPAD_INPUT_UP] == 1)
     {
@@ -186,23 +199,27 @@ static void lv_keypad_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         data->state = LV_INDEV_STATE_PRESSED;
         data->key = LV_KEY_ENTER;
     }
-    else
-    {
-        data->state = LV_INDEV_STATE_RELEASED;
-        data->key = 0;
-    }
+    // No 'else' needed here as data->state is initialized to RELEASED above
 }
 
-static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
+static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
+    // The px_map is passed as bytes, but for your LCD it likely
+    // represents the lv_color_t array.
+    lv_color_t *color_map = (lv_color_t *)px_map;
+
     int offsetx1 = area->x1;
     int offsetx2 = area->x2;
     int offsety1 = area->y1;
     int offsety2 = area->y2;
 
+    lv_draw_sw_rgb565_swap(color_map, lv_area_get_size(area));
+
+    // Send data to your LCD driver
     lcd_draw(offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, color_map);
 
-    lv_disp_flush_ready(drv);
+    // IMPORTANT: In LVGL 9, use lv_display_flush_ready()
+    lv_display_flush_ready(disp);
 }
 
 static void increase_lvgl_tick(void *arg)
@@ -238,112 +255,175 @@ static void get_time(char *buffer, int size)
 
 static void settings_mbox_event_cb(lv_event_t *e)
 {
-    lv_obj_t *obj = lv_event_get_current_target(e);
-    char *btn = lv_msgbox_get_active_btn_text(obj);
-    if (strcmp(btn, "Close") == 0)
-    {
-        lv_msgbox_close(obj);
-        lv_create_list(LIST_SETTINGS);
-    }
+    lv_create_list(LIST_SETTINGS);
 }
 
 static void lv_show_battery(void)
 {
-    lv_group_remove_all_objs(g);
-    static const char *btns[] = {"Close", ""};
-    lv_obj_t *mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_BATTERY_2 " Battery", "Battery", btns, false);
-    lv_obj_t *label = lv_msgbox_get_text(mbox1);
+    if (!ui_state.input_group)
+    {
+        ESP_LOGE(TAG, "Input group not initialized");
+        return;
+    }
+    lv_group_remove_all_objs(ui_state.input_group);
+
+    lv_obj_t *mbox1 = lv_msgbox_create(NULL);
+    if (!mbox1)
+    {
+        ESP_LOGE(TAG, "Failed to create battery message box");
+        return;
+    }
+
+    lv_msgbox_add_title(mbox1, LV_SYMBOL_BATTERY_2 " Battery");
+    lv_obj_t *label = lv_msgbox_add_text(mbox1, "");
+    if (!label)
+    {
+        lv_obj_del(mbox1);
+        return;
+    }
+
+    lv_obj_t *close_btn = lv_msgbox_add_close_button(mbox1);
+    if (!close_btn)
+    {
+        lv_obj_del(mbox1);
+        return;
+    }
+
+    // Battery Logic
     battery_state bat;
     battery_level_read(&bat);
-    char *charge_status;
-    switch (bat.state)
-    {
-    case NO_CHRG:
-        charge_status = "Discharging";
-        break;
-    case CHARGING:
-        charge_status = "Charging";
-        break;
-    case FULL_CHARGED:
-        charge_status = "Fully Charge";
-        break;
-    default:
-        charge_status = "Unknown";
-        break;
-    }
-    lv_label_set_text_fmt(label, "Status\n"
-                                 "%s\n"
-                                 "Voltage %d mV\n"
-                                 "Percentage %d%%",
+    const char *charge_status = (bat.state == CHARGING) ? "Charging" : (bat.state == FULL_CHARGED) ? "Fully Charged"
+                                                                                                   : "Discharging";
+
+    lv_label_set_text_fmt(label, "Status\n%s\nVoltage %d mV\nPercentage %d%%",
                           charge_status, bat.millivolts, bat.percentage);
-    lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_DELETE, NULL);
     lv_obj_center(mbox1);
+    lv_group_add_obj(ui_state.input_group, close_btn);
 }
 
 static void lv_show_about(void)
 {
-    lv_group_remove_all_objs(g);
-    static const char *btns[] = {"Close", ""};
-    lv_obj_t *mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_SETTINGS " About ESPlay", "Launcher", btns, false);
-    lv_obj_t *label = lv_msgbox_get_text(mbox1);
-    esp_app_desc_t *desc = esp_ota_get_app_description();
-    lv_label_set_text_fmt(label, "Launcher\n"
-                                 "%s\n"
-                                 "IDF Ver. %s\n"
-                                 "Built %s %s",
-                          desc->version, desc->idf_ver, desc->date, desc->time);
-    lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    if (!ui_state.input_group)
+    {
+        ESP_LOGE(TAG, "Input group not initialized");
+        return;
+    }
+    lv_group_remove_all_objs(ui_state.input_group);
+
+    lv_obj_t *mbox1 = lv_msgbox_create(NULL);
+    if (!mbox1)
+    {
+        ESP_LOGE(TAG, "Failed to create about message box");
+        return;
+    }
+    lv_msgbox_add_title(mbox1, LV_SYMBOL_SETTINGS " About ESPlay");
+
+    lv_obj_t *label = lv_msgbox_add_text(mbox1, "");
+    if (!label)
+    {
+        lv_obj_del(mbox1);
+        return;
+    }
+    lv_obj_t *close_btn = lv_msgbox_add_close_button(mbox1);
+    if (!close_btn)
+    {
+        lv_obj_del(mbox1);
+        return;
+    }
+
+    const esp_app_desc_t *desc = esp_app_get_description();
+    if (desc)
+    {
+        lv_label_set_text_fmt(label, "Launcher\n%s\nIDF Ver. %s\nBuilt %s %s",
+                              desc->version, desc->idf_ver, desc->date, desc->time);
+    }
+    else
+    {
+        lv_label_set_text(label, "Launcher\nVersion info unavailable");
+    }
+
+    lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_DELETE, NULL);
     lv_obj_center(mbox1);
+    lv_group_add_obj(ui_state.input_group, close_btn);
 }
 
 static void lv_show_storage(void)
 {
-    uint32_t tot;
-    uint32_t free;
-    sdcard_get_free_space(&tot, &free);
+    if (!ui_state.input_group)
+    {
+        ESP_LOGE(TAG, "Input group not initialized");
+        return;
+    }
 
-    lv_group_remove_all_objs(g);
-    static const char *btns[] = {"Close", ""};
-    lv_obj_t *mbox1 = lv_msgbox_create(NULL, LV_SYMBOL_SD_CARD " Storage", "Storage", btns, false);
-    lv_obj_t *label = lv_msgbox_get_text(mbox1);
-    lv_label_set_text_fmt(label, "SD Card\n"
-                                 "Total %5lu MB\n"
-                                 "Free %5lu MB\n\n"
-                                 "Internal Appfs\n"
-                                 "Free %d KB\n",
-                          (unsigned long)tot / 1024, (unsigned long)free / 1024, appfsGetFreeMem() / 1024);
-    lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    uint32_t tot = 0, free_space = 0;
+    sdcard_get_free_space(&tot, &free_space);
+
+    lv_group_remove_all_objs(ui_state.input_group);
+    lv_obj_t *mbox1 = lv_msgbox_create(NULL);
+    if (!mbox1)
+    {
+        ESP_LOGE(TAG, "Failed to create storage message box");
+        return;
+    }
+    lv_msgbox_add_title(mbox1, LV_SYMBOL_SD_CARD " Storage");
+
+    lv_obj_t *label = lv_msgbox_add_text(mbox1, "");
+    if (!label)
+    {
+        lv_obj_del(mbox1);
+        return;
+    }
+    lv_obj_t *close_btn = lv_msgbox_add_close_button(mbox1);
+    if (!close_btn)
+    {
+        lv_obj_del(mbox1);
+        return;
+    }
+
+    lv_label_set_text_fmt(label, "SD Card\nTotal %lu MB\nFree %lu MB\n\nInternal Appfs\nFree %d KB",
+                          (unsigned long)tot / 1024, (unsigned long)free_space / 1024, appfsGetFreeMem() / 1024);
+
+    lv_obj_add_event_cb(mbox1, settings_mbox_event_cb, LV_EVENT_DELETE, NULL);
     lv_obj_center(mbox1);
+    lv_group_add_obj(ui_state.input_group, close_btn);
 }
 
 static void list_items_event_handler(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t *obj = lv_event_get_target(e);
+    lv_obj_t *obj = lv_event_get_target(e); // This is the button in the list
+
     if (code == LV_EVENT_KEY)
     {
         uint32_t key = lv_indev_get_key(lv_indev_get_act());
-        switch (key)
-        {
-        case LV_KEY_DOWN:
+        if (key == LV_KEY_DOWN)
             lv_group_focus_next(lv_group_get_default());
-            break;
-        case LV_KEY_UP:
+        else if (key == LV_KEY_UP)
             lv_group_focus_prev(lv_group_get_default());
-            break;
-        default:
-            break;
-        }
     }
     else if (code == LV_EVENT_CLICKED)
     {
-        const char *name = lv_list_get_btn_text(lv_event_get_user_data(e), obj);
+        // v9 replacement for lv_list_get_btn_text:
+        // Find the label child of the button (List buttons have an icon and a label)
+        lv_obj_t *label = NULL;
+        for (uint32_t i = 0; i < lv_obj_get_child_cnt(obj); i++)
+        {
+            lv_obj_t *child = lv_obj_get_child(obj, i);
+            if (lv_obj_check_type(child, &lv_label_class))
+            {
+                label = child;
+                break;
+            }
+        }
+
+        if (!label)
+            return;
+        const char *name = lv_label_get_text(label);
+
         if (strcmp(name, "Back") == 0)
             lv_create_homescreen();
-        else if (strcmp(name, "Wifi") == 0)
-            ESP_LOGI(TAG, "%s", name);
-        else if (strcmp(name, "Volume") == 0)
-            ESP_LOGI(TAG, "%s", name);
         else if (strcmp(name, "Storage") == 0)
             lv_show_storage();
         else if (strcmp(name, "Battery") == 0)
@@ -352,6 +432,7 @@ static void list_items_event_handler(lv_event_t *e)
             lv_show_about();
         else
         {
+            // App launching logic remains the same
             int fd = appfsOpen(name);
             kchal_set_new_app(fd);
             esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
@@ -403,28 +484,31 @@ static int nextFdFileForFilter(int fd, fc_filtercb_t filter, void *filterarg, co
     return APPFS_INVALID_FD;
 }
 
-/*
-static void remove_ext(char *fn) {
-    int dot=-1;
-    for (int i=0; i<strlen(fn); i++) {
-        if (fn[i]=='.') dot=i;
-    }
-    if (dot!=-1) fn[dot]=0;
-}
-*/
+/* Removed unused remove_ext function */
 
-static void lv_add_file_list(lv_obj_t *list, void *extention)
+static void lv_add_file_list(lv_obj_t *list, void *extension)
 {
+    if (!list || !extension)
+    {
+        ESP_LOGE(TAG, "Invalid parameters for lv_add_file_list");
+        return;
+    }
+
     int fd = APPFS_INVALID_FD;
     int apps = 0;
     while (1)
     {
-        const char *name;
-        fd = nextFdFileForFilter(fd, filechooser_filter_glob, extention, &name);
-        if (fd == APPFS_INVALID_FD)
+        const char *name = NULL;
+        fd = nextFdFileForFilter(fd, filechooser_filter_glob, extension, &name);
+        if (fd == APPFS_INVALID_FD || !name)
             break;
-        appfsEntryInfo(fd, &name, NULL);
+        // appfsEntryInfo is called inside nextFdFileForFilter, so name should be valid
         lv_obj_t *btn = lv_list_add_btn(list, LV_SYMBOL_FILE, name);
+        if (!btn)
+        {
+            ESP_LOGE(TAG, "Failed to create button for %s", name);
+            continue;
+        }
         if (apps == 0)
             lv_group_focus_obj(btn);
         lv_obj_add_event_cb(btn, list_items_event_handler, LV_EVENT_ALL, list);
@@ -440,14 +524,14 @@ typedef struct esplay_settings_t
 
 static void lv_add_setting_list(lv_obj_t *list)
 {
-    esplay_settings_t set_list[5] = {
-        {LV_SYMBOL_WIFI, "Wifi"},
-        {LV_SYMBOL_VOLUME_MAX, "Volume"},
+    esplay_settings_t set_list[] = {
+        // {LV_SYMBOL_WIFI, "Wifi"},
+        // {LV_SYMBOL_VOLUME_MAX, "Volume"},
         {LV_SYMBOL_SD_CARD, "Storage"},
         {LV_SYMBOL_BATTERY_2, "Battery"},
         {LV_SYMBOL_SETTINGS, "About"}};
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < sizeof(set_list) / sizeof(set_list[0]); i++)
     {
         lv_obj_t *btn = lv_list_add_btn(list, set_list[i].icon, set_list[i].text);
         lv_obj_add_event_cb(btn, list_items_event_handler, LV_EVENT_ALL, list);
@@ -495,26 +579,26 @@ static void btn_event_handler(lv_event_t *e)
     }
     else if (code == LV_EVENT_FOCUSED)
     {
-        if (obj == btn1)
-            lv_label_set_text(menu_selected, "Application");
-        else if (obj == btn2)
-            lv_label_set_text(menu_selected, "Games");
-        else if (obj == btn3)
-            lv_label_set_text(menu_selected, "Settings");
+        if (obj == ui_state.home_btn1)
+            lv_label_set_text(ui_state.menu_selected_label, "Application");
+        else if (obj == ui_state.home_btn2)
+            lv_label_set_text(ui_state.menu_selected_label, "Games");
+        else if (obj == ui_state.home_btn3)
+            lv_label_set_text(ui_state.menu_selected_label, "Settings");
         else
-            printf("not selecting menu\n");
+            ESP_LOGW(TAG, "Unknown button focused");
     }
     else if (code == LV_EVENT_CLICKED)
     {
-        if (obj == btn1)
+        if (obj == ui_state.home_btn1)
         {
             lv_create_list(LIST_APP);
         }
-        else if (obj == btn2)
+        else if (obj == ui_state.home_btn2)
         {
             lv_create_list(LIST_GAMES);
         }
-        else if (obj == btn3)
+        else if (obj == ui_state.home_btn3)
         {
             lv_create_list(LIST_SETTINGS);
         }
@@ -523,13 +607,18 @@ static void btn_event_handler(lv_event_t *e)
 
 static void lv_create_list(int type)
 {
-    lv_group_remove_all_objs(g);
-    lv_obj_clean(scr);
+    if (!ui_state.input_group || !ui_state.screen)
+    {
+        ESP_LOGE(TAG, "UI state not initialized");
+        return;
+    }
+    lv_group_remove_all_objs(ui_state.input_group);
+    lv_obj_clean(ui_state.screen);
 
-    lv_obj_t *title = lv_label_create(scr);
+    lv_obj_t *title = lv_label_create(ui_state.screen);
     lv_obj_set_style_text_color(title, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_t *list = lv_list_create(scr);
+    lv_obj_t *list = lv_list_create(ui_state.screen);
     lv_obj_set_size(list, 300, 200);
     lv_obj_align(list, LV_ALIGN_TOP_MID, 0, 30);
     lv_obj_t *btn = lv_list_add_btn(list, LV_SYMBOL_LEFT, "Back");
@@ -540,164 +629,82 @@ static void lv_create_list(int type)
     case LIST_APP:
         lv_label_set_text(title, "Application");
         lv_populate_list_items(list, type);
-        cpage = PAGE_APP;
+        ui_state.current_page = PAGE_APP;
         break;
     case LIST_GAMES:
         lv_label_set_text(title, "Games");
         lv_populate_list_items(list, type);
-        cpage = PAGE_GAMES;
+        ui_state.current_page = PAGE_GAMES;
         break;
     case LIST_SETTINGS:
         lv_label_set_text(title, "Settings");
         lv_populate_list_items(list, type);
-        cpage = PAGE_SETTINGS;
+        ui_state.current_page = PAGE_SETTINGS;
         break;
     default:
         break;
     }
 }
 
-static void lv_create_homescreen()
+static void init_system_components(void)
 {
-    lv_group_remove_all_objs(g);
-    lv_obj_clean(scr);
+    ESP_LOGI(TAG, "Initializing NVS flash");
+    nvs_flash_init();
 
-    char buffer[64];
-    get_time(buffer, sizeof(buffer));
+    ESP_LOGI(TAG, "Initializing battery level");
+    battery_level_init();
 
-    lv_obj_set_style_bg_color(scr, lv_palette_darken(LV_PALETTE_BLUE, 5), 0);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_grad_color(scr, lv_palette_lighten(LV_PALETTE_BLUE, 3), 0);
-    lv_obj_set_style_bg_grad_dir(scr, LV_GRAD_DIR_VER, 0);
+    ESP_LOGI(TAG, "Initializing LCD display");
+    lcd_init();
 
-    time_text = lv_label_create(scr);
-    lv_label_set_text(time_text, buffer);
-    lv_obj_set_style_text_color(time_text, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
-    lv_obj_align(time_text, LV_ALIGN_TOP_LEFT, 5, 0);
+    ESP_LOGI(TAG, "Initializing gamepad");
+    gamepad_init();
 
-    lv_obj_t *title = lv_label_create(scr);
-    lv_label_set_text(title, "ESPLAY 3");
-    lv_obj_set_style_text_color(title, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
-
-    battery = lv_label_create(scr);
-    lv_label_set_text(battery, LV_SYMBOL_BATTERY_FULL);
-    lv_obj_set_style_text_color(battery, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
-    lv_obj_align(battery, LV_ALIGN_TOP_RIGHT, 0, 0);
-
-    menu_selected = lv_label_create(scr);
-    lv_label_set_text(menu_selected, "APPLICATION");
-    lv_obj_set_style_text_color(menu_selected, lv_palette_lighten(LV_PALETTE_YELLOW, 4), 0);
-    lv_obj_align(menu_selected, LV_ALIGN_TOP_MID, 0, 40);
-
-    /*Init the style for the default state*/
-    static lv_style_t style;
-    lv_style_init(&style);
-
-    lv_style_set_radius(&style, 3);
-    // lv_style_set_text_font(&style, &lv_font_montserrat_28);
-    lv_style_set_bg_opa(&style, LV_OPA_20);
-    lv_style_set_bg_color(&style, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_bg_grad_color(&style, lv_palette_darken(LV_PALETTE_BLUE, 2));
-    lv_style_set_bg_grad_dir(&style, LV_GRAD_DIR_VER);
-
-    lv_style_set_border_opa(&style, LV_OPA_40);
-    lv_style_set_border_width(&style, 2);
-    lv_style_set_border_color(&style, lv_palette_main(LV_PALETTE_GREY));
-
-    lv_style_set_shadow_width(&style, 8);
-    lv_style_set_shadow_color(&style, lv_palette_main(LV_PALETTE_GREY));
-    lv_style_set_shadow_ofs_y(&style, 8);
-
-    lv_style_set_outline_opa(&style, LV_OPA_COVER);
-    lv_style_set_outline_color(&style, lv_palette_main(LV_PALETTE_BLUE));
-
-    lv_style_set_text_color(&style, lv_color_white());
-    lv_style_set_pad_all(&style, 10);
-
-    btn1 = lv_btn_create(scr);
-    lv_obj_t *img = lv_img_create(btn1);
-    lv_img_set_src(img, &apps_img);
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_style(btn1, &style, 0);
-    lv_obj_set_style_bg_opa(btn1, LV_OPA_60, LV_STATE_FOCUSED);
-    lv_obj_set_style_bg_color(btn1, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
-    lv_obj_set_style_bg_grad_color(btn1, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
-    lv_obj_set_size(btn1, 80, 80);
-    lv_obj_align(btn1, LV_ALIGN_LEFT_MID, 10, 0);
-    lv_obj_add_event_cb(btn1, btn_event_handler, LV_EVENT_ALL, NULL);
-
-    btn2 = lv_btn_create(scr);
-    img = lv_img_create(btn2);
-    lv_img_set_src(img, &games_img);
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_style(btn2, &style, 0);
-    lv_obj_set_style_bg_opa(btn2, LV_OPA_60, LV_STATE_FOCUSED);
-    lv_obj_set_style_bg_color(btn2, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
-    lv_obj_set_style_bg_grad_color(btn2, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
-    lv_obj_set_size(btn2, 80, 80);
-    lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_event_cb(btn2, btn_event_handler, LV_EVENT_ALL, NULL);
-
-    btn3 = lv_btn_create(scr);
-    img = lv_img_create(btn3);
-    lv_img_set_src(img, &settings_img);
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_style(btn3, &style, 0);
-    lv_obj_set_style_bg_opa(btn3, LV_OPA_60, LV_STATE_FOCUSED);
-    lv_obj_set_style_bg_color(btn3, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
-    lv_obj_set_style_bg_grad_color(btn3, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
-    lv_obj_set_size(btn3, 80, 80);
-    lv_obj_align(btn3, LV_ALIGN_RIGHT_MID, -10, 0);
-    lv_obj_add_event_cb(btn3, btn_event_handler, LV_EVENT_ALL, NULL);
-
-    cpage = PAGE_HOME;
+    ESP_LOGI(TAG, "Initializing AppFS");
+    ESP_ERROR_CHECK(appfsInit(0x43, 3));
+    ESP_LOGI(TAG, "AppFS initialized");
 }
 
-void app_main(void)
+static void init_lvgl_display(void)
 {
-    nvs_flash_init();
-    battery_level_init();
-    ESP_LOGI(TAG, "Initialize lcd display");
-    lcd_init();
-    ESP_LOGI(TAG, "Initialize gamepad");
-    gamepad_init();
-    ESP_ERROR_CHECK(appfsInit(0x43, 3));
-    ESP_LOGI(TAG, "Appfs inited");
-
-    static lv_disp_draw_buf_t disp_buf;
-    static lv_disp_drv_t disp_drv;
-
-    ESP_LOGI(TAG, "Initialize LVGL library");
+    ESP_LOGI(TAG, "Initializing LVGL library");
     lv_init();
-    // alloc draw buffers used by LVGL
-    // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
-    lv_color_t *buf1 = heap_caps_malloc(LCD_H_RES * LINE_COUNT * sizeof(lv_color_t), MALLOC_CAP_DMA);
-    assert(buf1);
-    lv_color_t *buf2 = heap_caps_malloc(LCD_H_RES * LINE_COUNT * sizeof(lv_color_t), MALLOC_CAP_DMA);
-    assert(buf2);
-    // initialize LVGL draw buffers
-    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, LCD_H_RES * 20);
 
-    ESP_LOGI(TAG, "Register display driver to LVGL");
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = LCD_H_RES;
-    disp_drv.ver_res = LCD_V_RES;
-    disp_drv.flush_cb = lvgl_flush_cb;
-    disp_drv.draw_buf = &disp_buf;
-    lv_disp_t *disp = lv_disp_drv_register(&disp_drv);
+    // Create the display object
+    lv_display_t *disp = lv_display_create(LCD_H_RES, LCD_V_RES);
+    if (!disp)
+    {
+        ESP_LOGE(TAG, "Failed to create LVGL display");
+        return;
+    }
 
-    ESP_LOGI(TAG, "Register input device driver to LVGL");
-    static lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_KEYPAD;
-    indev_drv.read_cb = lv_keypad_read;
+    // Allocate and set draw buffers
+    void *buf1 = heap_caps_malloc(LCD_H_RES * LINE_COUNT * sizeof(lv_color_t), MALLOC_CAP_DMA);
+    void *buf2 = heap_caps_malloc(LCD_H_RES * LINE_COUNT * sizeof(lv_color_t), MALLOC_CAP_DMA);
+    if (!buf1 || !buf2)
+    {
+        ESP_LOGE(TAG, "Failed to allocate LVGL buffers");
+        return;
+    }
 
-    /*Register the driver in LVGL and save the created input device object*/
-    my_indev = lv_indev_drv_register(&indev_drv);
+    lv_display_set_buffers(disp, buf1, buf2, LCD_H_RES * LINE_COUNT * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-    ESP_LOGI(TAG, "Install LVGL tick timer");
-    // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
+    // Set the flush callback
+    lv_display_set_flush_cb(disp, lvgl_flush_cb);
+
+    ESP_LOGI(TAG, "Registering input device to LVGL");
+    // Create the input device object
+    lv_indev_t *indev = lv_indev_create();
+    if (!indev)
+    {
+        ESP_LOGE(TAG, "Failed to create LVGL input device");
+        return;
+    }
+    lv_indev_set_type(indev, LV_INDEV_TYPE_KEYPAD);
+    lv_indev_set_read_cb(indev, lv_keypad_read);
+    ui_state.input_device = indev;
+
+    ESP_LOGI(TAG, "Installing LVGL tick timer");
     const esp_timer_create_args_t lvgl_tick_timer_args = {
         .callback = &increase_lvgl_tick,
         .name = "lvgl_tick"};
@@ -705,59 +712,168 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000));
 
-    scr = lv_obj_create(NULL);
-    lv_scr_load(scr);
-    g = lv_group_create();
-    lv_group_set_default(g);
-    lv_indev_set_group(my_indev, g);
+    // Create screen
+    ui_state.screen = lv_obj_create(NULL);
+    lv_screen_load(ui_state.screen);
+
+    ui_state.input_group = lv_group_create();
+    lv_group_set_default(ui_state.input_group);
+    lv_indev_set_group(ui_state.input_device, ui_state.input_group);
+
     lv_create_homescreen();
+}
 
+static void init_ui(void)
+{
     sdcard_open("/sd");
-
     ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
     wifi_init_softap();
-
-    /* Start the file server */
     ESP_ERROR_CHECK(start_file_server("/sd"));
+}
 
+static void run_main_loop(void)
+{
     TickType_t xLast = xTaskGetTickCount();
     while (1)
     {
-        // raise the task priority of LVGL and/or reduce the handler period can improve the performance
-        vTaskDelay(pdMS_TO_TICKS(10));
-        // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
-        lv_timer_handler();
+        // lv_timer_handler now returns the time until the next call is needed
+        uint32_t time_till_next = lv_timer_handler();
+
+        // Dynamic delay based on LVGL needs, capped at 10ms for responsiveness
+        uint32_t delay = (time_till_next > 10) ? 10 : time_till_next;
+        vTaskDelay(pdMS_TO_TICKS(delay));
 
         TickType_t xNow = xTaskGetTickCount();
         if ((xNow - xLast) > pdMS_TO_TICKS(2000))
         {
-            if (cpage == PAGE_HOME)
+            if (ui_state.current_page == PAGE_HOME)
             {
                 char buffer[64];
                 get_time(buffer, sizeof(buffer));
-                lv_label_set_text(time_text, buffer);
+                lv_label_set_text(ui_state.time_label, buffer);
 
                 battery_state bat;
                 battery_level_read(&bat);
 
                 if (bat.state == FULL_CHARGED || bat.state == CHARGING)
-                    lv_label_set_text(battery, LV_SYMBOL_CHARGE);
+                    lv_label_set_text(ui_state.battery_label, LV_SYMBOL_CHARGE);
                 else
                 {
-                    if (bat.percentage <= 100 && bat.percentage > 75)
-                        lv_label_set_text(battery, LV_SYMBOL_BATTERY_FULL);
-                    else if (bat.percentage <= 75 && bat.percentage > 50)
-                        lv_label_set_text(battery, LV_SYMBOL_BATTERY_3);
-                    else if (bat.percentage <= 50 && bat.percentage > 25)
-                        lv_label_set_text(battery, LV_SYMBOL_BATTERY_2);
-                    else if (bat.percentage <= 25 && bat.percentage > 5)
-                        lv_label_set_text(battery, LV_SYMBOL_BATTERY_1);
+                    if (bat.percentage > 75)
+                        lv_label_set_text(ui_state.battery_label, LV_SYMBOL_BATTERY_FULL);
+                    else if (bat.percentage > 50)
+                        lv_label_set_text(ui_state.battery_label, LV_SYMBOL_BATTERY_3);
+                    else if (bat.percentage > 25)
+                        lv_label_set_text(ui_state.battery_label, LV_SYMBOL_BATTERY_2);
+                    else if (bat.percentage > 5)
+                        lv_label_set_text(ui_state.battery_label, LV_SYMBOL_BATTERY_1);
                     else
-                        lv_label_set_text(battery, LV_SYMBOL_BATTERY_EMPTY);
+                        lv_label_set_text(ui_state.battery_label, LV_SYMBOL_BATTERY_EMPTY);
                 }
             }
-
             xLast = xNow;
         }
     }
+}
+
+static lv_obj_t *create_home_button(lv_obj_t *parent, const lv_img_dsc_t *img_src, lv_align_t align, int x_ofs, int y_ofs)
+{
+    lv_obj_t *btn = lv_btn_create(parent);
+    if (!btn)
+        return NULL;
+
+    lv_obj_t *img = lv_img_create(btn);
+    if (!img)
+    {
+        lv_obj_del(btn);
+        return NULL;
+    }
+    lv_img_set_src(img, img_src);
+    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+
+    static lv_style_t style_def;
+    static bool style_inited = false;
+    if (!style_inited)
+    {
+        lv_style_init(&style_def);
+        lv_style_set_radius(&style_def, 3);
+        lv_style_set_bg_opa(&style_def, LV_OPA_20);
+        lv_style_set_bg_color(&style_def, lv_palette_main(LV_PALETTE_BLUE));
+        lv_style_set_bg_grad_color(&style_def, lv_palette_darken(LV_PALETTE_BLUE, 2));
+        lv_style_set_bg_grad_dir(&style_def, LV_GRAD_DIR_VER);
+        lv_style_set_border_opa(&style_def, LV_OPA_40);
+        lv_style_set_border_width(&style_def, 2);
+        lv_style_set_border_color(&style_def, lv_palette_main(LV_PALETTE_GREY));
+        lv_style_set_shadow_width(&style_def, 8);
+        lv_style_set_shadow_color(&style_def, lv_palette_main(LV_PALETTE_GREY));
+        lv_style_set_shadow_ofs_y(&style_def, 8);
+        lv_style_set_outline_opa(&style_def, LV_OPA_COVER);
+        lv_style_set_outline_color(&style_def, lv_palette_main(LV_PALETTE_BLUE));
+        lv_style_set_text_color(&style_def, lv_color_white());
+        lv_style_set_pad_all(&style_def, 10);
+        style_inited = true;
+    }
+
+    lv_obj_add_style(btn, &style_def, 0);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_60, LV_STATE_FOCUSED);
+    lv_obj_set_style_bg_color(btn, lv_palette_main(LV_PALETTE_YELLOW), LV_STATE_FOCUSED);
+    lv_obj_set_style_bg_grad_color(btn, lv_palette_darken(LV_PALETTE_YELLOW, 2), LV_STATE_FOCUSED);
+    lv_obj_set_size(btn, 80, 80);
+    lv_obj_align(btn, align, x_ofs, y_ofs);
+    lv_obj_add_event_cb(btn, btn_event_handler, LV_EVENT_ALL, NULL);
+
+    return btn;
+}
+
+static void lv_create_homescreen()
+{
+    if (!ui_state.input_group || !ui_state.screen)
+    {
+        ESP_LOGE(TAG, "UI state not initialized");
+        return;
+    }
+    lv_group_remove_all_objs(ui_state.input_group);
+    lv_obj_clean(ui_state.screen);
+
+    char buffer[64];
+    get_time(buffer, sizeof(buffer));
+
+    lv_obj_set_style_bg_color(ui_state.screen, lv_palette_darken(LV_PALETTE_BLUE, 5), 0);
+    lv_obj_set_style_bg_opa(ui_state.screen, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_grad_color(ui_state.screen, lv_palette_lighten(LV_PALETTE_BLUE, 3), 0);
+    lv_obj_set_style_bg_grad_dir(ui_state.screen, LV_GRAD_DIR_VER, 0);
+
+    ui_state.time_label = lv_label_create(ui_state.screen);
+    lv_label_set_text(ui_state.time_label, buffer);
+    lv_obj_set_style_text_color(ui_state.time_label, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
+    lv_obj_align(ui_state.time_label, LV_ALIGN_TOP_LEFT, 5, 0);
+
+    lv_obj_t *title = lv_label_create(ui_state.screen);
+    lv_label_set_text(title, "ESPLAY 3");
+    lv_obj_set_style_text_color(title, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
+
+    ui_state.battery_label = lv_label_create(ui_state.screen);
+    lv_label_set_text(ui_state.battery_label, LV_SYMBOL_BATTERY_FULL);
+    lv_obj_set_style_text_color(ui_state.battery_label, lv_palette_lighten(LV_PALETTE_GREY, 5), 0);
+    lv_obj_align(ui_state.battery_label, LV_ALIGN_TOP_RIGHT, 0, 0);
+
+    ui_state.menu_selected_label = lv_label_create(ui_state.screen);
+    lv_label_set_text(ui_state.menu_selected_label, "APPLICATION");
+    lv_obj_set_style_text_color(ui_state.menu_selected_label, lv_palette_lighten(LV_PALETTE_YELLOW, 4), 0);
+    lv_obj_align(ui_state.menu_selected_label, LV_ALIGN_TOP_MID, 0, 40);
+
+    ui_state.home_btn1 = create_home_button(ui_state.screen, &apps, LV_ALIGN_LEFT_MID, 10, 0);
+    ui_state.home_btn2 = create_home_button(ui_state.screen, &games, LV_ALIGN_CENTER, 0, 0);
+    ui_state.home_btn3 = create_home_button(ui_state.screen, &settings, LV_ALIGN_RIGHT_MID, -10, 0);
+
+    ui_state.current_page = PAGE_HOME;
+}
+
+void app_main(void)
+{
+    init_system_components();
+    init_lvgl_display();
+    init_ui();
+    run_main_loop();
 }

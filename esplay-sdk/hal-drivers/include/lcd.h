@@ -19,7 +19,7 @@ extern "C"
 
 // LCD Buffer
 #define LINE_BUFFERS 2
-#define LINE_COUNT 20
+#define LINE_COUNT 6
 
 void lcd_init();
 void lcd_draw(int x1, int y1, int x2, int y2, void *data);

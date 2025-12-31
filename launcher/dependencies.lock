@@ -14,16 +14,16 @@ dependencies:
       type: idf
     version: 5.5.1
   lvgl/lvgl:
-    component_hash: d7c1ac037ae6e85d94897f807d6e7ba0946a83e720074fc95a4f6241da9f9f53
+    component_hash: 17e68bfd21f0edf4c3ee838e2273da840bf3930e5dbc3bfa6c1190c3aed41f9f
     dependencies: []
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 8.4.0
+    version: 9.4.0
 direct_dependencies:
 - espressif/cmake_utilities
 - idf
 - lvgl/lvgl
-manifest_hash: 289b4cc9c7fbbedf9e065eeb977f9a0eefecd5baf49dc55e71abbdc53d46017a
+manifest_hash: 954030ebc1157c6693dddb26c8e5ddcfb72ee1dd4b932186d3b5575d4cb9148c
 target: esp32
 version: 2.0.0

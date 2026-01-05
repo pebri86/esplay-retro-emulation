@@ -1,7 +1,0 @@
-{
-  "files.associations": {
-    ".blade.php": "html",
-    ".tpl": "html",
-    "random": "c"
-  }
-}

@@ -7,7 +7,7 @@
 #include "esp_system.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"   // New v5.x I2C Driver
-#include "esp_adc/adc_oneshot.h"  // New v5.x ADC Driver
+#include "esp_adc/adc_oneshot.h" // New v5.x ADC Driver
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "gamepad.h"
@@ -64,7 +64,8 @@ static uint8_t i2c_keypad_read()
     uint8_t data = 0xFF;
     // New unified API replaces cmd_link_create/start/stop
     esp_err_t err = i2c_master_receive(dev_handle, &data, 1, -1);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG, "I2C read failed: %s", esp_err_to_name(err));
     }
     return data;
@@ -77,22 +78,28 @@ input_gamepad_state gamepad_input_read_raw()
 {
     input_gamepad_state state = {0};
 
-    #ifdef CONFIG_ESPLAY20_HW
+#ifdef CONFIG_ESPLAY20_HW
     int joyX = 0, joyY = 0;
     // ADC1 Oneshot read
     adc_oneshot_read(adc1_handle, IO_X, &joyX);
     adc_oneshot_read(adc1_handle, IO_Y, &joyY);
 
     // Joystick Logic
-    if (joyX > 3072) {
+    if (joyX > 3072)
+    {
         state.values[GAMEPAD_INPUT_LEFT] = 1;
-    } else if (joyX > 1024) {
+    }
+    else if (joyX > 1024)
+    {
         state.values[GAMEPAD_INPUT_RIGHT] = 1;
     }
 
-    if (joyY > 3072) {
+    if (joyY > 3072)
+    {
         state.values[GAMEPAD_INPUT_UP] = 1;
-    } else if (joyY > 1024) {
+    }
+    else if (joyY > 1024)
+    {
         state.values[GAMEPAD_INPUT_DOWN] = 1;
     }
 
@@ -100,11 +107,12 @@ input_gamepad_state gamepad_input_read_raw()
     state.values[GAMEPAD_INPUT_START] = !(gpio_get_level(START));
     state.values[GAMEPAD_INPUT_A] = !(gpio_get_level(A));
     state.values[GAMEPAD_INPUT_B] = !(gpio_get_level(B));
-    #endif
+#endif
 
     // Read I2C Expanders
     uint8_t i2c_data = i2c_keypad_read();
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 8; ++i)
+    {
         state.values[i] = ((i2c_data & (1 << i)) == 0) ? 1 : 0;
     }
 
@@ -133,11 +141,14 @@ static void input_task(void *arg)
             for (int i = 0; i < GAMEPAD_INPUT_MAX; ++i)
             {
                 debounce[i] = (debounce[i] << 1) | (raw_state.values[i] ? 1 : 0);
-                uint8_t val = debounce[i] & 0x03; 
-                
-                if (val == 0x00) {
+                uint8_t val = debounce[i] & 0x03;
+
+                if (val == 0x00)
+                {
                     gamepad_state.values[i] = 0;
-                } else if (val == 0x03) {
+                }
+                else if (val == 0x03)
+                {
                     gamepad_state.values[i] = 1;
                 }
             }
@@ -153,9 +164,11 @@ static void input_task(void *arg)
 
 void gamepad_read(input_gamepad_state *out_state)
 {
-    if (!input_gamepad_initialized) return;
+    if (!input_gamepad_initialized)
+        return;
 
-    if (xSemaphoreTake(xSemaphore, portMAX_DELAY) == pdTRUE) {
+    if (xSemaphoreTake(xSemaphore, portMAX_DELAY) == pdTRUE)
+    {
         *out_state = gamepad_state;
         xSemaphoreGive(xSemaphore);
     }
@@ -164,10 +177,11 @@ void gamepad_read(input_gamepad_state *out_state)
 void gamepad_init()
 {
     xSemaphore = xSemaphoreCreateMutex();
-    if (xSemaphore == NULL) abort();
+    if (xSemaphore == NULL)
+        abort();
 
-    // 1. Initialize ADC
-    #ifdef CONFIG_ESPLAY20_HW
+// 1. Initialize ADC
+#ifdef CONFIG_ESPLAY20_HW
     adc_oneshot_unit_init_cfg_t init_config1 = {
         .unit_id = ADC_UNIT_1,
         .clk_src = ADC_DIGI_CLK_SRC_DEFAULT,
@@ -180,7 +194,7 @@ void gamepad_init()
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, IO_X, &adc_config));
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, IO_Y, &adc_config));
-    #endif
+#endif
 
     // 2. Initialize I2C
     i2c_master_driver_initialize();
@@ -191,13 +205,12 @@ void gamepad_init()
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .pin_bit_mask = ((1ULL << L_BTN) | (1ULL << R_BTN) | (1ULL << MENU))
-    };
-    
-    #ifdef CONFIG_ESPLAY20_HW
+        .pin_bit_mask = ((1ULL << L_BTN) | (1ULL << R_BTN) | (1ULL << MENU))};
+
+#ifdef CONFIG_ESPLAY20_HW
     btn_config.pin_bit_mask |= ((1ULL << A) | (1ULL << B) | (1ULL << SELECT) | (1ULL << START));
-    #endif
-    
+#endif
+
     gpio_config(&btn_config);
 
     input_gamepad_initialized = true;
@@ -214,18 +227,22 @@ void input_gamepad_terminate()
     // Small delay to allow task to exit
     vTaskDelay(pdMS_TO_TICKS(50));
 
-    if (dev_handle) {
+    if (dev_handle)
+    {
         i2c_master_bus_rm_device(dev_handle);
     }
-    if (bus_handle) {
+    if (bus_handle)
+    {
         i2c_del_master_bus(bus_handle);
     }
 #ifdef CONFIG_ESPLAY20_HW
-    if (adc1_handle) {
+    if (adc1_handle)
+    {
         adc_oneshot_del_unit(adc1_handle);
     }
 #endif
-    if (xSemaphore) {
+    if (xSemaphore)
+    {
         vSemaphoreDelete(xSemaphore);
     }
 }

@@ -1,37 +1,31 @@
-#ifndef _LCD_H_
-#define _LCD_H_
-#include <stdint.h>
+/**
+ * @file lcd.h
+ * @brief LCD display initialization header file.
+ *
+ * Defines LCD dimensions and the initialization function.
+ */
 
-//*****************************************************************************
-//
-// Make sure all of the definitions in this header have a C binding.
-//
-//*****************************************************************************
+#include "esp_lcd_panel_io.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+/** LCD display width in pixels. */
+#define LCD_WIDTH 320
+/** LCD display height in pixels. */
+#define LCD_HEIGHT 240
 
-// The pixel number in horizontal and vertical
-#define LCD_H_RES              320
-#define LCD_V_RES              240
+/**
+ * @brief Initialize the LCD display.
+ *
+ * Sets up the LCD panel and returns the panel handle.
+ *
+ * @param panel Pointer to store the LCD panel handle.
+ */
+void lcd_init(esp_lcd_panel_handle_t *panel);
 
-// LCD Buffer
-#define LINE_BUFFERS 2
-#define LINE_COUNT 6
+/**
+ * @brief Set LCD brightness level.
+ * * @param brightness Value from 0 to 100
+ */
+void lcd_set_brightness(uint8_t brightness);
 
-void lcd_init();
-void lcd_draw(int x1, int y1, int x2, int y2, void *data);
-void wait_for_finish(void);
-void backlight_deinit();
-void backlight_prepare();
-void set_brightness(int percent);
-void backlight_prepare();
-void backlight_poweroff();
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /*_DISPLAY_H_*/
+void lcd_draw(esp_lcd_panel_handle_t panel, int x1, int y1, int x2, int y2,
+              uint8_t *px_map);

@@ -1,378 +1,165 @@
 #include "sdcard.h"
-
+#include "driver/sdmmc_host.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdspi_host.h"
 #include "sdmmc_cmd.h"
-#include "esp_heap_caps.h"
+#include <ctype.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <ctype.h>
 
 static bool isOpen = false;
-
+static sdmmc_card_t *card = NULL;
+static char *mounted_path = NULL;
 static const char *TAG = "hal-sdcard";
 
-inline static void swap(char **a, char **b)
-{
-    char *t = *a;
-    *a = *b;
-    *b = t;
+// Sorting Helpers
+static int strcicmp(char const *a, char const *b) {
+  for (;; a++, b++) {
+    int d = tolower((unsigned char)*a) - tolower((unsigned char)*b);
+    if (d != 0 || !*a)
+      return d;
+  }
 }
 
-static int strcicmp(char const *a, char const *b)
-{
-    for (;; a++, b++)
-    {
-        int d = tolower((int)*a) - tolower((int)*b);
-        if (d != 0 || !*a)
-            return d;
-    }
-}
-
-static int partition(char *arr[], int low, int high)
-{
+static void quick_sort(char *arr[], int low, int high) {
+  if (low < high) {
     char *pivot = arr[high];
-    int i = (low - 1);
-
-    for (int j = low; j <= high - 1; j++)
-    {
-        if (strcicmp(arr[j], pivot) < 0)
-        {
-            i++;
-            swap(&arr[i], &arr[j]);
-        }
+    int i = low - 1;
+    for (int j = low; j < high; j++) {
+      if (strcicmp(arr[j], pivot) < 0) {
+        i++;
+        char *tmp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
+      }
     }
-    swap(&arr[i + 1], &arr[high]);
-    return (i + 1);
+    char *tmp = arr[i + 1];
+    arr[i + 1] = arr[high];
+    arr[high] = tmp;
+    int pi = i + 1;
+    quick_sort(arr, low, pi - 1);
+    quick_sort(arr, pi + 1, high);
+  }
 }
 
-static void quick_sort(char *arr[], int low, int high)
-{
-    if (low < high)
-    {
-        int pi = partition(arr, low, high);
+// SD Card Logic
+esp_err_t sdcard_open(const char *base_path) {
+  if (isOpen)
+    return ESP_OK;
 
-        quick_sort(arr, low, pi - 1);
-        quick_sort(arr, pi + 1, high);
-    }
+  sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+  host.flags = SDMMC_HOST_FLAG_1BIT;
+
+  sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+  slot_config.width = 1;
+
+  esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+      .format_if_mount_failed = false,
+      .max_files = 5,
+      .allocation_unit_size = CONFIG_WL_SECTOR_SIZE};
+
+  esp_err_t ret = esp_vfs_fat_sdmmc_mount(base_path, &host, &slot_config,
+                                          &mount_config, &card);
+  if (ret == ESP_OK) {
+    isOpen = true;
+    mounted_path = strdup(base_path);
+    ESP_LOGI(TAG, "SDCard mounted at %s", base_path);
+  }
+  return ret;
 }
 
-static void sort_files(char **files, int count)
-{
-    int n = count;
-    bool swapped = true;
-
-    if (count > 1)
-    {
-        quick_sort(files, 0, count - 1);
-    }
+esp_err_t sdcard_close() {
+  if (!isOpen)
+    return ESP_FAIL;
+  esp_err_t ret = esp_vfs_fat_sdcard_unmount(mounted_path, card);
+  if (ret == ESP_OK) {
+    isOpen = false;
+    free(mounted_path);
+    mounted_path = NULL;
+  }
+  return ret;
 }
 
-void sdcard_get_free_space(uint32_t *tot, uint32_t *free)
-{
-    FATFS *fs;
-    DWORD fre_clust, fre_sect, tot_sect;
-
-    /* Get volume information and free clusters of drive 0 */
-    if (f_getfree("0:", &fre_clust, &fs) == FR_OK)
-    {
-        /* Get total sectors and free sectors */
-        tot_sect = (fs->n_fatent - 2) * fs->csize;
-        fre_sect = fre_clust * fs->csize;
-
-        *tot = tot_sect / 2;
-        *free = fre_sect / 2;
-
-        /* Print the free space (assuming 512 bytes/sector) */
-        // ESP_LOGD(TAG, "%10lu KiB total drive space. %10lu KiB available.", *tot, *free);
-    }
+void sdcard_get_free_space(uint32_t *tot, uint32_t *free_spc) {
+  FATFS *fs;
+  DWORD fre_clust;
+  if (f_getfree("", &fre_clust, &fs) == FR_OK) {
+    *tot = ((fs->n_fatent - 2) * fs->csize) / 2;
+    *free_spc = (fre_clust * fs->csize) / 2;
+  }
 }
 
-int sdcard_files_get(const char *path, const char *extension, char ***filesOut)
-{
-    const int MAX_FILES = 1024;
-    const uint32_t MALLOC_CAPS = MALLOC_CAP_DEFAULT; // MALLOC_CAP_SPIRAM
+int sdcard_files_get(const char *path, const char *extension,
+                     char ***filesOut) {
+  const int MAX_FILES = 1024;
+  int count = 0;
+  char **result = malloc(MAX_FILES * sizeof(char *));
+  DIR *dir = opendir(path);
+  if (!dir || !result)
+    return 0;
 
-    int count = 0;
-    char **result = (char **)malloc(MAX_FILES * sizeof(void *));
-    if (!result)
-        abort();
+  struct dirent *entry;
+  int ext_len = strlen(extension);
 
-    DIR *dir = opendir(path);
-    if (dir == NULL)
-    {
-        printf("opendir failed.\n");
-        // abort();
-        return 0;
+  while ((entry = readdir(dir)) != NULL) {
+    if (entry->d_name[0] == '.')
+      continue;
+    int name_len = strlen(entry->d_name);
+    if (name_len <= ext_len)
+      continue;
+
+    char *file_ext = &entry->d_name[name_len - ext_len];
+    if (strcasecmp(file_ext, extension) == 0) {
+      result[count] = strdup(entry->d_name);
+      if (++count >= MAX_FILES)
+        break;
     }
-
-    int extensionLength = strlen(extension);
-    if (extensionLength < 1)
-        abort();
-
-    char *temp = (char *)malloc(extensionLength + 1);
-    if (!temp)
-        abort();
-
-    memset(temp, 0, extensionLength + 1);
-
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        size_t len = strlen(entry->d_name);
-
-        // ignore 'hidden' files (MAC)
-        bool skip = false;
-        if (entry->d_name[0] == '.')
-            skip = true;
-
-        memset(temp, 0, extensionLength + 1);
-        if (!skip)
-        {
-            for (int i = 0; i < extensionLength; ++i)
-            {
-                temp[i] = tolower((int)entry->d_name[len - extensionLength + i]);
-            }
-
-            if (len > extensionLength)
-            {
-                if (strcmp(temp, extension) == 0)
-                {
-                    result[count] = (char *)malloc(len + 1);
-                    // printf("%s: allocated %p\n", __func__, result[count]);
-
-                    if (!result[count])
-                    {
-                        abort();
-                    }
-
-                    strcpy(result[count], entry->d_name);
-                    ++count;
-
-                    if (count >= MAX_FILES)
-                        break;
-                }
-            }
-        }
-    }
-
-    closedir(dir);
-    free(temp);
-
-    sort_files(result, count);
-
-    *filesOut = result;
-    return count;
+  }
+  closedir(dir);
+  if (count > 0)
+    quick_sort(result, 0, count - 1);
+  *filesOut = result;
+  return count;
 }
 
-void sdcard_files_free(char **files, int count)
-{
-    for (int i = 0; i < count; ++i)
-    {
-        // printf("%s: freeing item %p\n", __func__, files[i]);
-        free(files[i]);
-    }
-
-    // printf("%s: freeing array %p\n", __func__, files);
-    free(files);
+void sdcard_files_free(char **files, int count) {
+  for (int i = 0; i < count; i++)
+    free(files[i]);
+  free(files);
 }
 
-esp_err_t sdcard_open(const char *base_path)
-{
-    esp_err_t ret;
-
-    if (isOpen)
-    {
-        ESP_LOGI(TAG, "sdcard_open: already open");
-        ret = ESP_FAIL;
-    }
-    else
-    {
-        sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-        host.flags = SDMMC_HOST_FLAG_1BIT;
-
-        sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-        slot_config.width = 1;
-
-        // Options for mounting the filesystem.
-        // If format_if_mount_failed is set to true, SD card will be partitioned and
-        // formatted in case when mounting fails.
-        esp_vfs_fat_sdmmc_mount_config_t mount_config;
-        memset(&mount_config, 0, sizeof(mount_config));
-
-        mount_config.format_if_mount_failed = false;
-        mount_config.max_files = 5;
-
-        // Use settings defined above to initialize SD card and mount FAT filesystem.
-        // Note: esp_vfs_fat_sdmmc_mount is an all-in-one convenience function.
-        // Please check its source code and implement error recovery when developing
-        // production applications.
-        sdmmc_card_t *card;
-        ret = esp_vfs_fat_sdmmc_mount(base_path, &host, &slot_config, &mount_config, &card);
-
-        if (ret == ESP_OK)
-        {
-            isOpen = true;
-            ESP_LOGI(TAG, "SDcard initialized");
-        }
-        else
-        {
-            ESP_LOGI(TAG, "sdcard_open: esp_vfs_fat_sdmmc_mount failed (%d)", ret);
-        }
-    }
-
-    return ret;
+size_t sdcard_get_filesize(const char *path) {
+  struct stat st;
+  return (stat(path, &st) == 0) ? st.st_size : 0;
 }
 
-esp_err_t sdcard_close()
-{
-    esp_err_t ret;
+size_t sdcard_copy_file_to_memory(const char *path, void *ptr) {
+  FILE *f = fopen(path, "rb");
+  if (!f)
+    return 0;
 
-    if (!isOpen)
-    {
-        printf("sdcard_close: not open.\n");
-        ret = ESP_FAIL;
-    }
-    else
-    {
-        ret = esp_vfs_fat_sdmmc_unmount();
+  fseek(f, 0, SEEK_END);
+  size_t size = ftell(f);
+  fseek(f, 0, SEEK_SET);
 
-        if (ret != ESP_OK)
-        {
-            printf("sdcard_close: esp_vfs_fat_sdmmc_unmount failed (%d)\n", ret);
-        }
-        else
-        {
-            isOpen = false;
-        }
-    }
-
-    return ret;
+  size_t read = fread(ptr, 1, size, f);
+  fclose(f);
+  return read;
 }
 
-size_t sdcard_get_filesize(const char *path)
-{
-    size_t ret = 0;
+char *sdcard_create_savefile_path(const char *base_path, const char *fileName) {
+  char *dot = strrchr(fileName, '.');
+  if (!dot)
+    return NULL;
 
-    if (!isOpen)
-    {
-        printf("sdcard_get_filesize: not open.\n");
-    }
-    else
-    {
-        FILE *f = fopen(path, "rb");
-        if (f == NULL)
-        {
-            printf("sdcard_get_filesize: fopen failed.\n");
-        }
-        else
-        {
-            // get the file size
-            fseek(f, 0, SEEK_END);
-            ret = ftell(f);
-            fseek(f, 0, SEEK_SET);
-        }
-    }
+  char ext[16];
+  strncpy(ext, dot + 1, sizeof(ext));
 
-    return ret;
-}
-
-size_t sdcard_copy_file_to_memory(const char *path, void *ptr)
-{
-    size_t ret = 0;
-
-    if (!isOpen)
-    {
-        printf("sdcard_copy_file_to_memory: not open.\n");
-    }
-    else
-    {
-        if (!ptr)
-        {
-            printf("sdcard_copy_file_to_memory: ptr is null.\n");
-        }
-        else
-        {
-            FILE *f = fopen(path, "rb");
-            if (f == NULL)
-            {
-                printf("sdcard_copy_file_to_memory: fopen failed.\n");
-            }
-            else
-            {
-                // copy
-                const size_t BLOCK_SIZE = 512;
-                while (true)
-                {
-                    __asm__("memw");
-                    size_t count = fread((uint8_t *)ptr + ret, 1, BLOCK_SIZE, f);
-                    __asm__("memw");
-
-                    ret += count;
-
-                    if (count < BLOCK_SIZE)
-                        break;
-                }
-            }
-        }
-    }
-
-    return ret;
-}
-
-char *sdcard_create_savefile_path(const char *base_path, const char *fileName)
-{
-    char *result = NULL;
-
-    if (!base_path)
-        abort();
-    if (!fileName)
-        abort();
-
-    // printf("%s: base_path='%s', fileName='%s'\n", __func__, base_path, fileName);
-
-    // Determine folder
-    char *extension = fileName + strlen(fileName); // place at NULL terminator
-    while (extension != fileName)
-    {
-        if (*extension == '.')
-        {
-            ++extension;
-            break;
-        }
-        --extension;
-    }
-
-    if (extension == fileName)
-    {
-        printf("%s: File extention not found.\n", __func__);
-        abort();
-    }
-
-    // printf("%s: extension='%s'\n", __func__, extension);
-
-    const char *DATA_PATH = "/esplay/data/";
-    const char *SAVE_EXTENSION = ".sav";
-
-    size_t savePathLength = strlen(base_path) + strlen(DATA_PATH) + strlen(extension) + 1 + strlen(fileName) + strlen(SAVE_EXTENSION) + 1;
-    char *savePath = malloc(savePathLength);
-    if (savePath)
-    {
-        strcpy(savePath, base_path);
-        strcat(savePath, DATA_PATH);
-        strcat(savePath, extension);
-        strcat(savePath, "/");
-        strcat(savePath, fileName);
-        strcat(savePath, SAVE_EXTENSION);
-
-        printf("%s: savefile_path='%s'\n", __func__, savePath);
-
-        result = savePath;
-    }
-
-    return result;
+  char *path;
+  asprintf(&path, "%s/esplay/data/%s/%s.sav", base_path, ext, fileName);
+  return path;
 }

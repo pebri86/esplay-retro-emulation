@@ -8,18 +8,12 @@
 #define CHRG_STATE_PIN 33
 #define ADC_PIN ADC_CHANNEL_3
 
-typedef enum
-{
-    NO_CHRG = 0,
-	CHARGING,
-	FULL_CHARGED
-} charging_state;
+typedef enum { NO_CHRG = 0, CHARGING, FULL_CHARGED } charging_state;
 
-typedef struct
-{
-	int millivolts;
-	int percentage;
-	charging_state state;
+typedef struct {
+  int millivolts;
+  int percentage;
+  charging_state state;
 } battery_state;
 
 void system_sleep();

@@ -1,0 +1,2 @@
+dependencies:
+  espressif/esp_lcd_ili9341: ^2.0.2

@@ -7,15 +7,14 @@
 #define SETTINGS_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*********************
  *      INCLUDES
  *********************/
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /*********************
  *      DEFINES
@@ -25,26 +24,26 @@ extern "C"
  *      TYPEDEFS
  **********************/
 typedef enum esplay_scale_option {
-   SCALE_NONE = 0,
-   SCALE_FIT = 1,
-   SCALE_STRETCH = 2
+  SCALE_NONE = 0,
+  SCALE_FIT = 1,
+  SCALE_STRETCH = 2
 } esplay_scale_option;
 
 typedef enum Setting {
-	SettingAudioVolume = 0,
-	SettingBacklight,
-	SettingPlayingMode,
-	SettingRomPath,
-	SettingScaleMode,
-	SettingWifi,
-	SettingAlg,
-	SettingMax,
+  SettingAudioVolume = 0,
+  SettingBacklight,
+  SettingPlayingMode,
+  SettingRomPath,
+  SettingScaleMode,
+  SettingWifi,
+  SettingAlg,
+  SettingMax,
 } Setting;
 
 typedef enum ScaleAlghorithm {
-	NEAREST_NEIGHBOR = 0,
-	BILINIER_INTERPOLATION,
-	BOX_FILTERED
+  NEAREST_NEIGHBOR = 0,
+  BILINIER_INTERPOLATION,
+  BOX_FILTERED
 } ScaleAlghorithm;
 
 /**********************

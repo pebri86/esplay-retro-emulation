@@ -1,14 +1,4 @@
 dependencies:
-  espressif/cmake_utilities:
-    component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=4.1'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 0.5.3
   idf:
     source:
       type: idf
@@ -21,9 +11,7 @@ dependencies:
       type: service
     version: 9.4.0
 direct_dependencies:
-- espressif/cmake_utilities
-- idf
 - lvgl/lvgl
-manifest_hash: 954030ebc1157c6693dddb26c8e5ddcfb72ee1dd4b932186d3b5575d4cb9148c
+manifest_hash: e26012d29bb1748c506bbec791f8d4e4d8660290869230ea2d6a0cc985bfd3ce
 target: esp32
 version: 2.0.0
